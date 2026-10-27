@@ -3,19 +3,21 @@
    Design System: Deep Cyberpunk / Cloud Glassmorphism
    ========================================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 :root {
   --bg-primary: #0A0D17;
   --bg-secondary: #101626;
   --card-bg: rgba(20, 28, 47, 0.72);
   --card-border: rgba(255, 255, 255, 0.08);
   --card-hover-border: rgba(99, 102, 241, 0.35);
-  
+
   --primary-gradient: linear-gradient(135deg, #6366F1 0%, #A855F7 50%, #EC4899 100%);
   --accent-cyan: #06B6D4;
   --accent-emerald: #10B981;
   --accent-rose: #F43F5E;
   --accent-amber: #F59E0B;
-  
+
   --text-main: #F8FAFC;
   --text-muted: #94A3B8;
   --text-subtle: #64748B;
@@ -46,6 +48,12 @@ body {
   position: relative;
   overflow-x: hidden;
   line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Background Ambient Glows */
@@ -157,6 +165,7 @@ body {
 /* Main Content */
 .main-content {
   padding: 50px 0 80px;
+  flex: 1;
 }
 
 /* Hero Section */
@@ -454,7 +463,6 @@ body {
 }
 
 .btn-loader {
-  display: none;
   width: 20px;
   height: 20px;
   border: 3px solid rgba(255, 255, 255, 0.3);
@@ -672,6 +680,10 @@ body {
   display: block;
 }
 
+.modal-footer {
+  margin-top: 0;
+}
+
 .btn-secondary {
   width: 100%;
   padding: 13px;
@@ -731,6 +743,8 @@ body {
   text-align: center;
   font-size: 0.82rem;
   color: var(--text-subtle);
+  position: relative;
+  z-index: 1;
 }
 
 .footer-team {
