@@ -33,7 +33,7 @@ const OrganizerCheckIn: React.FC<OrganizerCheckInProps> = ({
         timestamp: now,
       };
       setLogs(prev => [newLog, ...prev]);
-      onAddToast({ message: `❌ Vé ${idToVerify} không tồn tại trên hệ thống RDS!`, type: 'error' });
+      onAddToast({ message: `Vé ${idToVerify} không tồn tại trên hệ thống RDS!`, type: 'error' });
       setInputTicketId('');
       return;
     }
@@ -47,7 +47,7 @@ const OrganizerCheckIn: React.FC<OrganizerCheckInProps> = ({
         timestamp: now,
       };
       setLogs(prev => [newLog, ...prev]);
-      onAddToast({ message: `⚠️ CẢNH BÁO: Vé ${idToVerify} đã được check-in trước đó! Không cho phép vào lần 2.`, type: 'warning' });
+      onAddToast({ message: `CẢNH BÁO: Vé ${idToVerify} đã được check-in trước đó! Không cho phép vào lần 2.`, type: 'warning' });
       setInputTicketId('');
       return;
     }
@@ -62,85 +62,94 @@ const OrganizerCheckIn: React.FC<OrganizerCheckInProps> = ({
       timestamp: now,
     };
     setLogs(prev => [newLog, ...prev]);
-    onAddToast({ message: `✅ Check-in thành công: ${existingTicket.attendeeName} (${idToVerify})`, type: 'success' });
+    onAddToast({ message: `XÁC NHẬN: Check-in vé ${idToVerify} thành công! Cho phép người tham dự vào cổng.`, type: 'success' });
     setInputTicketId('');
   };
 
   return (
-    <div className="organizer-panel">
-      <div className="panel-header">
-        <div className="panel-title-group">
-          <span className="panel-badge">STAFF SCANNER (US-19)</span>
-          <h2>Cổng Soát Vé Sự Kiện &amp; Check-in 1 Lần</h2>
-        </div>
-        <p className="panel-desc">
-          Mô phỏng máy quét mã QR tại cổng hội trường. Hệ thống chỉ cho phép check-in đúng 1 lần duy nhất để chống gian lận dùng lại vé.
+    <div className="organizer-checkin-container">
+      <div className="checkin-header">
+        <div className="badge-role">CỔNG SOÁT VÉ BAN TỔ CHỨC</div>
+        <h2>Hệ Thống Kiểm Soát Vé Vào Cổng (US-19)</h2>
+        <p>
+          Quét hoặc nhập mã vé điện tử QR Code để xác thực người tham dự. Hệ thống kiểm tra đối soát trực tiếp với cơ sở dữ liệu RDS MySQL và ngăn chặn vé sử dụng lại nhiều lần.
         </p>
       </div>
 
-      <div className="scanner-box">
+      <div className="checkin-scanner-box">
         <form onSubmit={handleCheckIn} className="scanner-form">
-          <div className="input-group-scanner">
-            <span className="scanner-icon">📷</span>
+          <label htmlFor="ticket-input">Nhập mã vé (VD: TR-100234 hoặc quét barcode/QR)</label>
+          <div className="scanner-input-row">
             <input
+              id="ticket-input"
               type="text"
-              placeholder="Nhập hoặc quét mã vé (Ví dụ: TR-12345678)..."
+              placeholder="Quét mã QR hoặc gõ mã vé..."
               value={inputTicketId}
               onChange={(e) => setInputTicketId(e.target.value)}
               className="scanner-input"
+              autoFocus
             />
             <button type="submit" className="btn-scanner-submit">
-              Xác Nhận Check-in
+              XÁC THỰC VÉ
             </button>
           </div>
         </form>
 
-        {/* Quick Sample Tickets from local storage */}
-        {ticketsList.length > 0 && (
-          <div className="quick-tickets">
-            <span className="quick-title">Bấm nhanh vé vừa mua để quét thử:</span>
-            <div className="quick-chips">
-              {ticketsList.map(t => (
-                <button
-                  key={t.ticketId}
-                  type="button"
-                  className={`quick-chip ${t.status === 'CHECKED_IN' ? 'used' : ''}`}
-                  onClick={() => setInputTicketId(t.ticketId)}
-                >
-                  {t.ticketId} ({t.attendeeName}) {t.status === 'CHECKED_IN' ? '✓ Đã vào' : '⏳ Chưa vào'}
-                </button>
-              ))}
-            </div>
+        <div className="scanner-stats">
+          <div className="stat-box">
+            <span className="stat-label">Tổng vé phát hành</span>
+            <span className="stat-value">{ticketsList.length}</span>
           </div>
-        )}
+          <div className="stat-box">
+            <span className="stat-label">Đã qua cổng</span>
+            <span className="stat-value text-green">
+              {ticketsList.filter(t => t.status === 'CHECKED_IN').length}
+            </span>
+          </div>
+          <div className="stat-box">
+            <span className="stat-label">Chưa check-in</span>
+            <span className="stat-value text-blue">
+              {ticketsList.filter(t => t.status === 'ISSUED').length}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Audit Logs Table */}
-      <div className="logs-section">
-        <h3>Nhật ký soát vé tại cổng (Audit Log)</h3>
+      <div className="checkin-logs-section">
+        <h3>Nhật Ký Quét Vé Vào Cổng (Audit Log)</h3>
         {logs.length === 0 ? (
-          <p className="no-logs">Chưa có lượt quét nào. Hãy nhập mã vé ở trên để kiểm tra.</p>
+          <div className="empty-logs">
+            Chưa có lượt quét nào. Hãy nhập mã vé để bắt đầu soát vé.
+          </div>
         ) : (
           <div className="logs-table-wrapper">
             <table className="logs-table">
               <thead>
                 <tr>
                   <th>Thời gian</th>
-                  <th>Mã vé</th>
+                  <th>Mã Vé</th>
                   <th>Khách tham dự</th>
-                  <th>Kết quả soát vé</th>
+                  <th>Email</th>
+                  <th>Kết quả đối soát</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log, idx) => (
-                  <tr key={idx} className={`log-row ${log.status.toLowerCase()}`}>
+                  <tr key={idx} className={`log-row-${log.status.toLowerCase()}`}>
                     <td>{log.timestamp}</td>
                     <td><code>{log.ticketId}</code></td>
-                    <td>{log.attendeeName} ({log.attendeeEmail})</td>
+                    <td>{log.attendeeName}</td>
+                    <td>{log.attendeeEmail}</td>
                     <td>
-                      {log.status === 'SUCCESS' && <span className="status-badge valid">✅ HỢP LỆ (CHO QUA)</span>}
-                      {log.status === 'ALREADY_CHECKED_IN' && <span className="status-badge duplicate">⚠️ ĐÃ CHECK-IN TRƯỚC ĐÓ</span>}
-                      {log.status === 'NOT_FOUND' && <span className="status-badge invalid">❌ VÉ KHÔNG TỒN TẠI</span>}
+                      {log.status === 'SUCCESS' && (
+                        <span className="badge-status-success">HỢP LỆ (VÀO CỔNG)</span>
+                      )}
+                      {log.status === 'ALREADY_CHECKED_IN' && (
+                        <span className="badge-status-danger">VÉ ĐÃ DÙNG RỒI</span>
+                      )}
+                      {log.status === 'NOT_FOUND' && (
+                        <span className="badge-status-warning">VÉ KHÔNG HỢP LỆ</span>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -46,7 +46,7 @@ const MYTAM_TIERS: TicketTier[] = [
     name: 'Fanzone (Đứng sát sân khấu)',
     priceText: '2.500.000 VND',
     priceValue: 2500000,
-    description: 'Khu vực đứng cận cảnh thần tượng, tặng kèm Lightstick độc quyền và Photocard có chữ ký.',
+    description: 'Khu vực đứng cận cảnh, tặng kèm quà lưu niệm độc quyền và Photocard có chữ ký.',
     availableCount: 0,
     maxPerOrder: 1,
     badge: 'HẾT VÉ',
@@ -56,7 +56,7 @@ const MYTAM_TIERS: TicketTier[] = [
     name: 'VIP Seated (Khán đài trung tâm)',
     priceText: '3.400.000 VND',
     priceValue: 3400000,
-    description: 'Ghế ngồi trung tâm đối diện sân khấu chính, tặng Khăn lụa kỷ niệm và Soundcheck pass.',
+    description: 'Ghế ngồi trung tâm đối diện sân khấu chính, tặng Khăn kỷ niệm và Soundcheck pass.',
     availableCount: 0,
     maxPerOrder: 1,
     badge: 'HẾT VÉ',
@@ -66,7 +66,7 @@ const MYTAM_TIERS: TicketTier[] = [
     name: 'SVIP (Hàng 1-3 Premium)',
     priceText: '4.600.000 VND',
     priceValue: 4600000,
-    description: 'Trải nghiệm đỉnh cao nhất: Full quà tặng, tiệc đón tiếp VIP Lounge và chụp ảnh kỷ niệm.',
+    description: 'Trải nghiệm trọn gói: Full quà tặng, tiệc đón tiếp VIP Lounge và chụp ảnh kỷ niệm.',
     availableCount: 0,
     maxPerOrder: 1,
     badge: 'HẾT VÉ',
@@ -264,16 +264,15 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
         </button>
       </div>
 
-      {/* 2. Real Event Hero Banner (Exact CTicket layout with authentic image) */}
-      <div className="ct-detail-hero-backdrop">
-        <div className="ct-detail-hero-container">
-          <div className="ct-detail-poster-wrapper">
-            <img
-              src={event.bannerImg}
-              alt={event.title}
-              className="ct-detail-hero-banner-img"
-            />
-          </div>
+      {/* 2. Solid Color Hero Banner (No gradients, no images) */}
+      <div
+        className="ct-detail-solid-hero"
+        style={{ backgroundColor: event.solidColor }}
+      >
+        <div className="ct-container ct-detail-solid-hero-inner">
+          <span className="ct-detail-hero-tag">{event.category.toUpperCase()}</span>
+          <h1 className="ct-detail-hero-title">{event.title}</h1>
+          <p className="ct-detail-hero-desc">{event.desc}</p>
         </div>
       </div>
 
@@ -307,7 +306,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Event Header Meta Section (Dark Gradient Background on CTicket) */}
+      {/* 4. Event Header Meta Section (Solid Navy Background) */}
       <div className="ct-event-meta-header">
         <div className="ct-container ct-meta-header-inner">
           
@@ -320,7 +319,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
             </span>
           </div>
 
-          <h1 className="ct-event-main-title">{event.title}</h1>
+          <h2 className="ct-event-main-title">{event.title}</h2>
 
           <div className="ct-event-details-grid">
             <div className="ct-meta-info-item">
@@ -413,7 +412,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
             
             {/* Left Box: Venue Card & Session Selector */}
             <div className="ct-schedule-left-col">
-              <h2 className="ct-block-title">Lịch sự kiện và sơ đồ chỗ ngồi</h2>
+              <h3 className="ct-block-title">Lịch sự kiện và sơ đồ chỗ ngồi</h3>
               <p className="ct-block-subtitle">Vui lòng chọn một khung giờ để bắt đầu đặt vé</p>
 
               {/* Venue Card */}
@@ -625,43 +624,65 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
           </div>
         )}
 
-        {/* Tab 2: Về sự kiện (Real Seatmap, Benefits, Terms & Refund Policy US-14) */}
+        {/* Tab 2: Về sự kiện (Solid Color Diagrams & Matrices) */}
         {activeTab === 'about' && (
           <div className="ct-about-tab-container">
             
-            {/* Real Seatmap Graphic from CTicket */}
+            {/* Solid Seatmap Diagram */}
             <div className="ct-content-block">
               <h3 className="ct-block-header">SƠ ĐỒ CHỖ NGỒI VÀ GIÁ VÉ</h3>
-              <div className="ct-seatmap-image-wrapper">
-                <img
-                  src="/assets/events/cticket_seatmap_full.png"
-                  alt="Sơ đồ chỗ ngồi Seatmap CTicket"
-                  className="ct-real-seatmap-img"
-                />
+              <div className="ct-solid-seatmap-diagram">
+                <div className="ct-solid-stage">MAIN STAGE (SÂN KHẤU CHÍNH)</div>
+                <div className="ct-solid-zones">
+                  <div className="ct-solid-zone zone-fanzone">KHU VỰC FANZONE (ĐỨNG CẬN SÂN KHẤU)</div>
+                  <div className="ct-solid-zone zone-vip">KHU VỰC VIP (GHẾ NGỒI TRUNG TÂM)</div>
+                  <div className="ct-solid-zone zone-standard">KHU VỰC TIÊU CHUẨN (KHÁN ĐÀI TẦNG 2)</div>
+                </div>
               </div>
             </div>
 
-            {/* Real Benefits Matrix from CTicket */}
+            {/* Benefits Matrix Table */}
             <div className="ct-content-block">
               <h3 className="ct-block-header">QUYỀN LỢI CÁC HẠNG VÉ (BENEFIT MATRIX)</h3>
-              <div className="ct-seatmap-image-wrapper">
-                <img
-                  src="/assets/events/cticket_benefits_full.png"
-                  alt="Bảng quyền lợi hạng vé CTicket"
-                  className="ct-real-seatmap-img"
-                />
+              <div className="ct-table-responsive">
+                <table className="ct-benefit-table">
+                  <thead>
+                    <tr>
+                      <th>HẠNG VÉ</th>
+                      <th>LÀN SOÁT VÉ</th>
+                      <th>QUÀ TẶNG LƯU NIỆM</th>
+                      <th>TEABREAK & LOUNGE</th>
+                      <th>HỎI ĐÁP DIỄN GIẢ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="ct-td-bold">Early Bird / Standard</td>
+                      <td>Làn thường</td>
+                      <td>Bộ slide PDF</td>
+                      <td>-</td>
+                      <td>Đặt câu hỏi chung</td>
+                    </tr>
+                    <tr className="ct-row-highlight">
+                      <td className="ct-td-bold">VIP Front-Row / Fanzone</td>
+                      <td>Priority Lane</td>
+                      <td>Full bộ tài liệu + Quà lưu niệm</td>
+                      <td>Tiệc Teabreak & VIP Lounge</td>
+                      <td>Giao lưu 1:1</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
-            {/* Real Terms and Conditions from CTicket */}
+            {/* Terms and Conditions */}
             <div className="ct-content-block">
               <h3 className="ct-block-header">LƯU Ý VÀ QUY ĐỊNH HOÀN TIỀN (US-14)</h3>
-              <div className="ct-seatmap-image-wrapper">
-                <img
-                  src="/assets/events/cticket_terms_full.png"
-                  alt="Quy định và điều khoản mua vé"
-                  className="ct-real-seatmap-img"
-                />
+              <div className="ct-terms-text">
+                <p><strong>1. Quy định giới hạn:</strong> Mỗi tài khoản hoặc địa chỉ email chỉ được mua tối đa 01 vé để đảm bảo chống đầu cơ vé (US-08).</p>
+                <p><strong>2. Thời gian tạm giữ ghế:</strong> Hệ thống tạm khóa chỗ ngồi trong vòng 10:00 phút trên ElastiCache Redis (US-11). Quá thời gian này, vé tự động nhả về kho.</p>
+                <p><strong>3. Hủy vé & Hoàn trả:</strong> Người dùng có thể chủ động hủy vé tại mục "Ví vé của tôi" trước 24 giờ diễn ra sự kiện. Ghế hủy sẽ tự động kích hoạt chuyển cho người kế tiếp trong Hàng đợi FIFO (US-14, US-15, US-16).</p>
+                <p><strong>4. Soát vé tại cổng:</strong> Mỗi vé có mã QR duy nhất, nhân viên soát vé sẽ quét tại cổng và ngăn chặn tuyệt đối việc tái sử dụng vé (US-19).</p>
               </div>
             </div>
 

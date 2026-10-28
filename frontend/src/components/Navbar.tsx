@@ -25,7 +25,7 @@ const Navbar: React.FC<NavbarProps> = ({
     <header className="ct-navbar">
       <div className="ct-nav-container">
         
-        {/* Brand Logo - 100% CTicket Official Style */}
+        {/* Brand Logo - TicketRush Style */}
         <div className="ct-brand-wrapper">
           <a
             href="#"
@@ -35,9 +35,8 @@ const Navbar: React.FC<NavbarProps> = ({
               onGoHome();
             }}
           >
-            <span className="ct-logo-prefix">C</span>
-            <span className="ct-logo-text">Ticket</span>
-            <span className="ct-logo-sub">Rush</span>
+            <span className="ct-logo-ticket">Ticket</span>
+            <span className="ct-logo-rush">Rush</span>
           </a>
         </div>
 
