@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import type { TicketStatus, RegistrationPayload, ToastMessage } from '../types';
+import { useState, useEffect, type FC, type ChangeEvent, type FormEvent } from 'react';
+import type { TicketStatus, RegistrationPayload, ToastMessage, TicketTier } from '../types';
 
 interface TicketCardProps {
   ticketsLeft: number;
@@ -9,9 +9,10 @@ interface TicketCardProps {
   isMockMode: boolean;
   apiBaseUrl: string;
   onTicketDecrement: () => void;
-  onShowModal: (ticketId: string, name: string, email: string) => void;
+  onShowModal: (ticketId: string, name: string, email: string, tierName?: string) => void;
   onAddToast: (toast: Omit<ToastMessage, 'id'>) => void;
   onRefetchStatus: () => void;
+  onOpenWaitlist: () => void;
 }
 
 interface FormErrors {
@@ -20,7 +21,30 @@ interface FormErrors {
   phone: string;
 }
 
-const TicketCard: React.FC<TicketCardProps> = ({
+const TIERS: TicketTier[] = [
+  {
+    id: 'early_bird',
+    name: 'Early Bird Pass (Hội trường chính)',
+    priceText: 'Miễn phí',
+    priceValue: 0,
+    description: 'Chỗ ngồi tiêu chuẩn, bao gồm tài liệu hội thảo và slide diễn giả.',
+    availableCount: 250,
+    maxPerOrder: 1,
+    badge: 'PHỔ BIẾN',
+  },
+  {
+    id: 'vip_access',
+    name: 'VIP Front-Row Access',
+    priceText: 'Miễn phí',
+    priceValue: 0,
+    description: 'Vị trí hàng đầu, check-in làn riêng (Priority Lane) và tiệc teabreak.',
+    availableCount: 50,
+    maxPerOrder: 1,
+    badge: 'GIỚI HẠN',
+  },
+];
+
+const TicketCard: FC<TicketCardProps> = ({
   ticketsLeft,
   totalTickets,
   status,
@@ -31,24 +55,68 @@ const TicketCard: React.FC<TicketCardProps> = ({
   onShowModal,
   onAddToast,
   onRefetchStatus,
+  onOpenWaitlist,
 }) => {
+  const [selectedTier, setSelectedTier] = useState<string>('early_bird');
+  const [step, setStep] = useState<'tier_select' | 'holding_form'>('tier_select');
+  const [holdSecondsLeft, setHoldSecondsLeft] = useState<number>(600); // 10 minutes hold per US-11
+  const [isHoldingActive, setIsHoldingActive] = useState<boolean>(false);
+
   const [formData, setFormData] = useState<RegistrationPayload>({
     full_name: '',
     email: '',
     phone: '',
   });
+  const [paymentMethod, setPaymentMethod] = useState<'qr_pay' | 'free'>('qr_pay');
   const [errors, setErrors] = useState<FormErrors>({ name: '', email: '', phone: '' });
   const [isLoading, setIsLoading] = useState(false);
+
+  // 10-Minute Holding Countdown Timer (US-11)
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (isHoldingActive && holdSecondsLeft > 0) {
+      timer = setInterval(() => {
+        setHoldSecondsLeft((prev) => {
+          if (prev <= 1) {
+            setIsHoldingActive(false);
+            setStep('tier_select');
+            onAddToast({ message: 'Hết thời gian giữ chỗ (10 phút)! Chỗ đã được trả về hàng đợi.', type: 'error' });
+            return 600;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isHoldingActive, holdSecondsLeft, onAddToast]);
+
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const percentage = Math.max(0, (ticketsLeft / totalTickets) * 100);
 
   const statusConfig = {
-    open: { text: 'Đang mở đăng ký', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' },
-    low: { text: 'SẮP HẾT VÉ', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' },
-    soldout: { text: 'ĐÃ HẾT VÉ', color: '#F43F5E', bg: 'rgba(244, 63, 94, 0.15)' },
+    open: { text: 'Đang mở bán', color: '#059669', bg: '#D1FAE5' },
+    low: { text: 'SẮP HẾT VÉ', color: '#D97706', bg: '#FEF3C7' },
+    soldout: { text: 'HẾT VÉ', color: '#DC2626', bg: '#FEE2E2' },
   };
 
   const currentStatus = statusConfig[status];
+  const chosenTierObj = TIERS.find((t) => t.id === selectedTier) || TIERS[0];
+
+  const handleStartHold = () => {
+    if (ticketsLeft <= 0) {
+      onOpenWaitlist();
+      return;
+    }
+    setIsHoldingActive(true);
+    setHoldSecondsLeft(600);
+    setStep('holding_form');
+    onAddToast({ message: 'Đã giữ chỗ trong 10:00! Vui lòng hoàn tất đăng ký.', type: 'info' });
+  };
 
   const validateForm = (): boolean => {
     let isValid = true;
@@ -75,16 +143,16 @@ const TicketCard: React.FC<TicketCardProps> = ({
     return isValid;
   };
 
-  const handleInputChange = (field: keyof RegistrationPayload) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
-    setErrors(prev => ({ ...prev, [field === 'full_name' ? 'name' : field]: '' }));
+  const handleInputChange = (field: keyof RegistrationPayload) => (e: ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    setErrors((prev) => ({ ...prev, [field === 'full_name' ? 'name' : field]: '' }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!isRushActive) {
-      onAddToast({ message: 'Sự kiện đã hết vé! Vui lòng quay lại đợt sau.', type: 'error' });
+    if (!isRushActive && ticketsLeft <= 0) {
+      onAddToast({ message: 'Sự kiện đã hết vé! Vui lòng tham gia danh sách chờ.', type: 'error' });
       return;
     }
 
@@ -96,19 +164,23 @@ const TicketCard: React.FC<TicketCardProps> = ({
       full_name: formData.full_name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim(),
+      ticket_tier: chosenTierObj.name,
+      event_id: 1,
     };
 
     try {
       if (isMockMode) {
-        // Standalone mock simulation
-        await new Promise(r => setTimeout(r, 700));
-        if (ticketsLeft <= 0) throw new Error('Hết vé');
+        await new Promise((r) => setTimeout(r, 600));
+        if (ticketsLeft <= 0) {
+          throw new Error('Hết vé');
+        }
         onTicketDecrement();
-        const mockTicketId = 'TR-' + Math.floor(10000 + Math.random() * 90000);
-        onShowModal(mockTicketId, payload.full_name, payload.email);
+        const mockTicketId = 'TR-' + Math.floor(10000000 + Math.random() * 90000000);
+        onShowModal(mockTicketId, payload.full_name, payload.email, chosenTierObj.name);
+        setIsHoldingActive(false);
+        setStep('tier_select');
         setFormData({ full_name: '', email: '', phone: '' });
       } else {
-        // Real API call
         const res = await fetch(`${apiBaseUrl}/api/tickets/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -121,16 +193,17 @@ const TicketCard: React.FC<TicketCardProps> = ({
           throw new Error(data.detail || data.message || 'Đăng ký thất bại hoặc hết vé!');
         }
 
-        onShowModal(data.ticket_id || data.ticketId || 'TR-SUCCESS', payload.full_name, payload.email);
-        onAddToast({ message: 'Đăng ký thành công! Vé QR sẽ sớm được gửi qua email.', type: 'success' });
+        const ticketId = data.ticket_id || data.ticketId || 'TR-SUCCESS';
+        onShowModal(ticketId, payload.full_name, payload.email, chosenTierObj.name);
+        onAddToast({ message: 'Đăng ký thành công! Vé QR sẽ gửi qua email của bạn.', type: 'success' });
+        setIsHoldingActive(false);
+        setStep('tier_select');
         setFormData({ full_name: '', email: '', phone: '' });
         onRefetchStatus();
       }
-    } catch (err) {
-      onAddToast({
-        message: err instanceof Error ? err.message : 'Đã có lỗi xảy ra. Vui lòng thử lại!',
-        type: 'error',
-      });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Đã có lỗi xảy ra. Vui lòng thử lại!';
+      onAddToast({ message: errorMessage, type: 'error' });
       onRefetchStatus();
     } finally {
       setIsLoading(false);
@@ -138,129 +211,167 @@ const TicketCard: React.FC<TicketCardProps> = ({
   };
 
   return (
-    <section className="ticket-card-wrapper">
-      <div className="ticket-card">
-        {/* Counter Header */}
-        <div className="counter-header">
-          <div className="counter-label">
-            <span className="fire-icon">🔥</span>
-            <span>Số vé còn lại theo thời gian thực (Redis)</span>
-          </div>
-          <div className="live-tag">
-            <span className="dot"></span> LIVE
-          </div>
+    <div className="ct-booking-card">
+      
+      {/* Live Redis Counter Header */}
+      <div className="ct-counter-header">
+        <div className="ct-counter-title">
+          <span>🔥 Số vé thời gian thực (Redis)</span>
         </div>
-
-        {/* Counter Stats */}
-        <div className="counter-stats">
-          <div className="counter-number">
-            <span id="ticketsLeft">{ticketsLeft}</span>
-            <span className="counter-total">/ {totalTickets} vé</span>
-          </div>
-          <div
-            className={`counter-status-pill${status === 'soldout' ? ' soldout' : ''}`}
-            style={{ color: currentStatus.color, background: currentStatus.bg }}
-            id="counterStatusPill"
-          >
-            {currentStatus.text}
-          </div>
+        <div className="ct-live-pill">
+          <span>●</span> LIVE
         </div>
+      </div>
 
-        {/* Progress Bar */}
-        <div className="progress-bar-container">
-          <div
-            className="progress-bar-fill"
-            id="progressBarFill"
-            style={{
-              width: `${percentage}%`,
-              background: status === 'soldout'
-                ? '#F43F5E'
-                : 'linear-gradient(90deg, #06B6D4 0%, #6366F1 50%, #EC4899 100%)',
-            }}
-          />
+      <div className="ct-counter-stats">
+        <div className="ct-ticket-number">
+          <span>{ticketsLeft}</span>
+          <span className="ct-ticket-total">/ {totalTickets} vé</span>
         </div>
-        <p className="counter-hint">⚡ Hệ thống tự động khóa cổng ngay khi chạm mốc 300 vé để chống oversell.</p>
+        <div className="ct-status-badge" style={{ color: currentStatus.color, background: currentStatus.bg }}>
+          {currentStatus.text}
+        </div>
+      </div>
 
-        <hr className="card-divider" />
+      {/* Progress Track */}
+      <div className="ct-progress-track">
+        <div
+          className="ct-progress-fill"
+          style={{
+            width: `${percentage}%`,
+            background: ticketsLeft <= 0 ? '#EF4444' : 'linear-gradient(90deg, #0284C7 0%, #E91E63 100%)',
+          }}
+        />
+      </div>
+      <p className="ct-counter-note">⚡ Giới hạn đúng 300 vé. Hệ thống tự động chặn oversell.</p>
 
-        {/* Registration Form */}
-        <form id="registrationForm" className="registration-form" noValidate onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="fullName">
-              Họ và tên người tham dự <span className="required">*</span>
-            </label>
-            <div className="input-wrapper">
-              <span className="input-icon">👤</span>
+      {/* STEP 1: CHỌN HẠNG VÉ */}
+      {step === 'tier_select' ? (
+        <div className="ct-tier-box">
+          <h4 style={{ fontSize: '0.92rem', marginBottom: '12px', color: '#0F172A' }}>
+            1. Chọn hạng vé (Tối đa 1 vé/người):
+          </h4>
+
+          {TIERS.map((tier) => (
+            <div
+              key={tier.id}
+              className={`ct-tier-item ${selectedTier === tier.id ? 'active' : ''}`}
+              onClick={() => setSelectedTier(tier.id)}
+            >
+              <div className="ct-tier-header">
+                <span className="ct-tier-name">{tier.name}</span>
+                <span className="ct-tier-price">{tier.priceText}</span>
+              </div>
+              <p className="ct-tier-desc">{tier.description}</p>
+            </div>
+          ))}
+
+          {ticketsLeft > 0 ? (
+            <button
+              type="button"
+              className="ct-btn-primary"
+              onClick={handleStartHold}
+            >
+              <span>⚡ MUA VÉ NGAY &amp; GIỮ CHỖ (10:00)</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="ct-btn-primary ct-btn-waitlist"
+              onClick={onOpenWaitlist}
+            >
+              <span>⏳ HẾT VÉ • THAM GIA DANH SÁCH CHỜ</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        /* STEP 2: HOLDING TIMER & CHECKOUT FORM */
+        <div className="ct-checkout-box">
+          {/* 10-Minute Hold Alert Banner */}
+          <div className="ct-hold-timer-banner">
+            <span className="ct-hold-icon">⏱️</span>
+            <div className="ct-hold-text">
+              <div className="ct-hold-title">
+                Đang giữ chỗ trong: <span className="ct-hold-clock">{formatTimer(holdSecondsLeft)}</span>
+              </div>
+              <div className="ct-hold-sub">Vui lòng điền thông tin để phát hành vé QR.</div>
+            </div>
+            <button
+              type="button"
+              className="ct-btn-change-tier"
+              onClick={() => {
+                setIsHoldingActive(false);
+                setStep('tier_select');
+              }}
+            >
+              Đổi hạng vé
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="ct-form-group">
+              <label className="ct-label">Họ và tên người nhận vé *</label>
               <input
                 type="text"
-                id="fullName"
-                name="fullName"
+                className="ct-input"
                 placeholder="Ví dụ: Nguyễn Văn A"
                 value={formData.full_name}
                 onChange={handleInputChange('full_name')}
-                required
               />
+              {errors.name && <small style={{ color: '#E11D48' }}>{errors.name}</small>}
             </div>
-            <span className="field-error" id="nameError">{errors.name}</span>
-          </div>
 
-          <div className="form-group">
-            <label htmlFor="email">
-              Địa chỉ Email nhận vé QR <span className="required">*</span>
-            </label>
-            <div className="input-wrapper">
-              <span className="input-icon">✉️</span>
+            <div className="ct-form-group">
+              <label className="ct-label">Email nhận vé QR *</label>
               <input
                 type="email"
-                id="email"
-                name="email"
+                className="ct-input"
                 placeholder="example@gmail.com"
                 value={formData.email}
                 onChange={handleInputChange('email')}
-                required
               />
+              {errors.email && <small style={{ color: '#E11D48' }}>{errors.email}</small>}
             </div>
-            <span className="field-error" id="emailError">{errors.email}</span>
-            <span className="field-helper">Mã QR vé sẽ được Lambda xử lý và gửi tự động qua AWS SES vào hòm thư này.</span>
-          </div>
 
-          <div className="form-group">
-            <label htmlFor="phone">
-              Số điện thoại <span className="required">*</span>
-            </label>
-            <div className="input-wrapper">
-              <span className="input-icon">📱</span>
+            <div className="ct-form-group">
+              <label className="ct-label">Số điện thoại *</label>
               <input
                 type="tel"
-                id="phone"
-                name="phone"
+                className="ct-input"
                 placeholder="0987654321"
                 value={formData.phone}
                 onChange={handleInputChange('phone')}
-                required
               />
+              {errors.phone && <small style={{ color: '#E11D48' }}>{errors.phone}</small>}
             </div>
-            <span className="field-error" id="phoneError">{errors.phone}</span>
-          </div>
 
-          <button
-            type="submit"
-            id="submitBtn"
-            className="btn-rush"
-            disabled={isLoading || !isRushActive}
-          >
-            {isLoading ? (
-              <span className="btn-loader" style={{ display: 'inline-block' }}></span>
-            ) : (
-              <span className="btn-text">
-                {isRushActive ? '⚡ SĂN VÉ NGAY' : '❌ HẾT VÉ TRONG ĐỢT NÀY'}
-              </span>
-            )}
-          </button>
-          <p className="guarantee-text">🔒 Bảo vệ chống trùng lặp bằng Redis Atomic Counter &amp; RDS Multi-AZ</p>
-        </form>
-      </div>
-    </section>
+            {/* Payment Method */}
+            <div className="ct-form-group">
+              <label className="ct-label">Phương thức thanh toán / xác nhận:</label>
+              <div className="ct-payment-method">
+                <div
+                  className={`ct-pay-option ${paymentMethod === 'qr_pay' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('qr_pay')}
+                >
+                  📱 Quét mã VNPAY / Momo
+                </div>
+                <div
+                  className={`ct-pay-option ${paymentMethod === 'free' ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod('free')}
+                >
+                  🎟️ Vé mời 0đ (Xác nhận ngay)
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" className="ct-btn-primary" disabled={isLoading} style={{ marginTop: '16px' }}>
+              {isLoading ? 'Đang xử lý đặt vé...' : 'XÁC NHẬN ĐẶT VÉ & NHẬN MÃ QR'}
+            </button>
+          </form>
+        </div>
+      )}
+
+    </div>
   );
 };
 
