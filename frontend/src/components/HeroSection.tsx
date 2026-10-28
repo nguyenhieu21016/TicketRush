@@ -30,7 +30,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     price: 'Từ 1.500.000 VND đến 4.600.000 VND',
     badge: 'Đã bán hết vé',
     badgeType: 'black',
-    solidColor: '#701A75',
+    solidColor: '#E2E8F0',
     desc: 'Mỹ Tâm Live Concert See The Light Day 2 - Đêm nhạc đỉnh cao với hệ thống âm thanh, ánh sáng chuẩn quốc tế tại Vạn Phúc City.',
   },
   {
@@ -43,7 +43,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     price: 'Từ 1.200.000 VND đến 3.800.000 VND',
     badge: 'Đang mở bán',
     badgeType: 'green',
-    solidColor: '#C2410C',
+    solidColor: '#E2E8F0',
     desc: 'Live concert Tùng Dương kỷ niệm 20 năm ca hát với các bản phối giao hưởng đương đại đỉnh cao.',
   },
   {
@@ -54,7 +54,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     date: 'TP. Hồ Chí Minh, 06 tháng 11, 2026 - 05 tháng 5, 2027',
     venue: 'Bảo tàng Mỹ thuật TP. Hồ Chí Minh',
     price: '180.000 VND',
-    solidColor: '#0369A1',
+    solidColor: '#E2E8F0',
     desc: 'Triển lãm nhiếp ảnh đương đại phong cách đối xứng Wes Anderson lần đầu tiên xuất hiện tại Việt Nam.',
   },
   {
@@ -65,7 +65,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     date: 'TP. Hồ Chí Minh, 08 tháng 11, 2026',
     venue: 'Nhà thi đấu Quân khu 7, TP. HCM',
     price: 'Từ 900.000 VND đến 2.500.000 VND',
-    solidColor: '#BE185D',
+    solidColor: '#E2E8F0',
     desc: 'Fanmeeting chính thức của Hyo với sân khấu biểu diễn độc quyền và fansign 1:1 dành cho hạng VIP.',
   },
   {
@@ -76,7 +76,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     date: 'Hà Nội, 07 tháng 11, 2026',
     venue: 'Cung thể thao Điền kinh Hà Nội',
     price: 'Từ 150.000 VND đến 450.000 VND',
-    solidColor: '#1D4ED8',
+    solidColor: '#E2E8F0',
     desc: 'Trận chung kết tổng Đấu Trường Danh Vọng Mùa Đông 2026 - tìm kiếm nhà vô địch đại diện Việt Nam tham dự AIC.',
   },
   {
@@ -89,7 +89,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     price: 'Từ 200.000 VND đến 800.000 VND',
     badge: 'Chờ mở bán',
     badgeType: 'pink',
-    solidColor: '#86198F',
+    solidColor: '#E2E8F0',
     desc: 'Đại nhạc hội bùng nổ kỷ niệm 10 năm Liên Quân Mobile quy tụ các ca sĩ và rapper hàng đầu.',
   },
   {
@@ -100,7 +100,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     date: 'DREAMS ENTERTAINMENT, 31 tháng 12, 2026',
     venue: 'Online Delivery Toàn Quốc',
     price: 'Từ 250.000 VND',
-    solidColor: '#B45309',
+    solidColor: '#E2E8F0',
     desc: 'Bộ sưu tập Merchandise giới hạn kỷ niệm tour diễn HYOLOGRAM bao gồm Áo thun, Lightstick và Photobook có chữ ký.',
   },
   {
@@ -111,7 +111,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     date: 'Hồ Chí Minh, 01 tháng 10, 2026 - 31 tháng 10, 2026',
     venue: 'Nhà hát Bến Thành, Quận 1',
     price: 'Từ 650.000 VND đến 1.800.000 VND',
-    solidColor: '#047857',
+    solidColor: '#E2E8F0',
     desc: 'Chương trình ẩm thực kết hợp nghệ thuật múa dân gian đương đại tái hiện văn hóa sông nước Nam Bộ.',
   },
   {
@@ -124,7 +124,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     price: '120.000 VND',
     badge: 'Đã đóng',
     badgeType: 'black',
-    solidColor: '#334155',
+    solidColor: '#E2E8F0',
     desc: 'Các trận đấu vòng bảng Super Sunday gay cấn giữa các đại diện Saigon Phantom, V Gaming và Team Flash.',
   },
   {
@@ -135,7 +135,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     date: 'Thành phố Hồ Chí Minh, 31 tháng 10, 2026 - 01 tháng 11, 2026',
     venue: 'Sân khấu Kịch Thế Giới Trẻ',
     price: 'Từ 200.000 VND đến 400.000 VND',
-    solidColor: '#581C87',
+    solidColor: '#E2E8F0',
     desc: 'Vở kịch kinh dị tâm lý hài hước đặc biệt nhân dịp lễ Halloween 2026.',
   },
   {
@@ -146,7 +146,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     date: 'Hà Nội, 29 tháng 8, 2026 - 30 tháng 11, 2026',
     venue: 'TTTM Gigamall & Vincom Royal City',
     price: 'Từ 350.000 VND',
-    solidColor: '#1E3A8A',
+    solidColor: '#E2E8F0',
     desc: 'Triển lãm tương tác đa giác quan trình chiếu 360 độ các kiệt tác nghệ thuật của đại danh họa Vincent Van Gogh.',
   },
   {
@@ -159,7 +159,7 @@ export const CTICKET_EVENTS: EventItemData[] = [
     price: 'Miễn phí (Giới hạn 300 vé)',
     badge: 'Đang mở bán',
     badgeType: 'green',
-    solidColor: '#0F172A',
+    solidColor: '#E2E8F0',
     desc: 'Đại hội công nghệ điện toán đám mây đỉnh cao. Thực chiến kiến trúc chịu tải 1.500 CCU, chống oversell với ElastiCache Redis và tự động co giãn Auto Scaling trên AWS.',
   },
 ];
@@ -184,7 +184,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onSelectEvent }) => {
   const slides = [
     {
       eventId: 1,
-      solidColor: '#4A0E4E',
+      solidColor: '#E2E8F0',
       tag: 'CONCERT NOI BAT',
       title: 'MỸ TÂM LIVE CONCERT - SEE THE LIGHT DAY 2',
       date: '21.11.2026 - 19:30',
@@ -193,7 +193,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onSelectEvent }) => {
     },
     {
       eventId: 12,
-      solidColor: '#1E3A8A',
+      solidColor: '#E2E8F0',
       tag: 'TICKETRUSH DEMO - 300 VE',
       title: 'AWS CLOUD ARCHITECTURE & HIGH CONCURRENCY SUMMIT 2026',
       date: '28.11.2026 - 09:00',
@@ -202,7 +202,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onSelectEvent }) => {
     },
     {
       eventId: 5,
-      solidColor: '#0F172A',
+      solidColor: '#E2E8F0',
       tag: 'ESPORTS VIET NAM',
       title: 'LIÊN QUÂN 10FEST | CHUNG KẾT ĐẤU TRƯỜNG DANH VỌNG',
       date: '07.11.2026 - 16:00',

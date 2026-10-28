@@ -364,7 +364,7 @@ body {
   display: flex;
   align-items: center;
   position: relative;
-  color: #FFFFFF;
+  color: #0F172A;
 }
 
 .ct-solid-banner-inner {
@@ -379,7 +379,8 @@ body {
 }
 
 .ct-solid-tag {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(15, 23, 42, 0.08);
+  color: #0F172A;
   padding: 4px 12px;
   border-radius: var(--ct-radius-full);
   font-size: 0.78rem;
@@ -402,20 +403,21 @@ body {
   font-weight: 800;
   line-height: 1.25;
   margin-bottom: 14px;
+  color: #0F172A;
 }
 
 .ct-solid-meta-row {
   display: flex;
   gap: 12px;
   font-size: 0.9rem;
-  color: #E2E8F0;
+  color: #334155;
   font-weight: 600;
   margin-bottom: 14px;
 }
 
 .ct-solid-note {
   font-size: 0.82rem;
-  color: #CBD5E1;
+  color: #475569;
   text-decoration: underline;
 }
 
@@ -594,15 +596,16 @@ body {
   align-items: center;
   justify-content: center;
   padding: 8px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(15, 23, 42, 0.15);
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
 }
 
 .ct-solid-card-text {
   font-size: 0.82rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: #0F172A;
   letter-spacing: 1px;
 }
 
@@ -739,7 +742,7 @@ body {
 .ct-detail-solid-hero {
   width: 100%;
   padding: 60px 0;
-  color: #FFFFFF;
+  color: #0F172A;
 }
 
 .ct-detail-solid-hero-inner {
@@ -750,7 +753,8 @@ body {
 
 .ct-detail-hero-tag {
   display: inline-block;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(15, 23, 42, 0.08);
+  color: #0F172A;
   padding: 4px 12px;
   border-radius: 4px;
   font-size: 0.8rem;
@@ -765,11 +769,12 @@ body {
   font-weight: 800;
   line-height: 1.25;
   margin-bottom: 12px;
+  color: #0F172A;
 }
 
 .ct-detail-hero-desc {
   font-size: 1rem;
-  color: #E2E8F0;
+  color: #334155;
   max-width: 720px;
 }
 
@@ -1587,8 +1592,10 @@ body {
   margin-bottom: 14px;
 }
 
+.ct-footer-logo .ct-logo-ticket,
+.ct-footer-logo .ct-logo-rush,
 .ct-footer-logo-text {
-  color: #FFFFFF;
+  color: #FFFFFF !important;
 }
 
 .ct-footer-slogan {
