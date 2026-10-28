@@ -264,105 +264,124 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
         </button>
       </div>
 
-      {/* 2. Solid Color Hero Banner (No gradients, no images) */}
-      <div
-        className="ct-detail-solid-hero"
-        style={{ backgroundColor: event.solidColor }}
-      >
-        <div className="ct-container ct-detail-solid-hero-inner">
-          <span className="ct-detail-hero-tag">{event.category.toUpperCase()}</span>
-          <h1 className="ct-detail-hero-title">{event.title}</h1>
-          <p className="ct-detail-hero-desc">{event.desc}</p>
-        </div>
-      </div>
-
-      {/* 3. Primary Full-Width CTA Action Button */}
-      <div className="ct-cta-bar-wrapper">
-        <div className="ct-cta-bar-inner">
-          {isSoldOut ? (
-            <button
-              type="button"
-              className="ct-full-cta-btn ct-btn-soldout"
-              onClick={onOpenWaitlist}
-              title="Sự kiện đã hết vé. Bấm để tham gia danh sách chờ (US-15, US-16)"
-            >
-              Đã bán hết vé - Tham gia hàng đợi chờ vé (Waitlist FIFO)
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="ct-full-cta-btn ct-btn-buy-now"
-              onClick={() => {
-                const el = document.getElementById('booking-section');
-                el?.scrollIntoView({ behavior: 'smooth' });
-                if (!isHoldingActive) handleStartHold();
-              }}
-            >
-              {isHoldingActive
-                ? `Đang giữ chỗ (${formatTimer(holdSecondsLeft)}) - Cuộn xuống để hoàn tất đặt vé`
-                : 'Mua vé ngay & Giữ chỗ trong 10:00 (US-11)'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 4. Event Header Meta Section (Solid Navy Background) */}
+      {/* 2. Main Event Hero Section - Exact CTicket.vn 2-Column Banner */}
       <div className="ct-event-meta-header">
         <div className="ct-container ct-meta-header-inner">
           
-          <div className="ct-meta-badge-row">
-            <span className={`ct-meta-status-pill ${isSoldOut ? 'soldout' : 'available'}`}>
-              {isSoldOut ? 'Đã bán hết vé' : 'Đang mở bán'}
-            </span>
-            <span className="ct-meta-cat-pill" style={{ backgroundColor: event.categoryColor.bg, color: event.categoryColor.text }}>
-              {event.category}
-            </span>
-          </div>
-
-          <h2 className="ct-event-main-title">{event.title}</h2>
-
-          <div className="ct-event-details-grid">
-            <div className="ct-meta-info-item">
-              <div>
-                <div className="ct-meta-info-label">Thời gian</div>
-                <div className="ct-meta-info-val">{event.date} - Từ 09:00 (ICT)</div>
-              </div>
-            </div>
-
-            <div className="ct-meta-info-item">
-              <div>
-                <div className="ct-meta-info-label">Địa điểm</div>
-                <div className="ct-meta-info-val">{event.venue}</div>
-              </div>
-            </div>
-
-            <div className="ct-meta-info-item">
-              <div>
-                <div className="ct-meta-info-label">Giá vé</div>
-                <div className="ct-meta-info-val ct-val-pink">{event.price}</div>
-              </div>
-            </div>
-
-            <div className="ct-meta-share-actions">
-              <button
-                type="button"
-                className="ct-share-icon-btn"
-                onClick={() => {
-                  navigator.clipboard?.writeText(window.location.href);
-                  onAddToast({ message: 'Đã sao chép link sự kiện vào bộ nhớ tạm!', type: 'info' });
-                }}
-                title="Sao chép link sự kiện"
+          <div className="ct-hero-grid-split">
+            {/* Left Column: Poster Card + Buy Ticket Pink CTA Button */}
+            <div className="ct-hero-left-poster-box">
+              <div
+                className="ct-hero-poster-solid"
+                style={{ backgroundColor: event.solidColor }}
               >
-                Link
-              </button>
-              <button
-                type="button"
-                className="ct-share-icon-btn"
-                onClick={() => window.open('https://facebook.com', '_blank')}
-                title="Chia sẻ lên Facebook"
-              >
-                Share
-              </button>
+                <div className="ct-solid-card-label">
+                  <span className="ct-solid-card-text">{event.category.toUpperCase()}</span>
+                </div>
+              </div>
+
+              {/* Main Pink Action Button */}
+              {isSoldOut ? (
+                <button
+                  type="button"
+                  className="ct-hero-action-btn btn-soldout"
+                  onClick={onOpenWaitlist}
+                  title="Sự kiện đã hết vé. Bấm tham gia hàng đợi chờ vé (Waitlist)"
+                >
+                  Đã bán hết vé - Vào Waitlist
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="ct-hero-action-btn btn-primary"
+                  onClick={() => {
+                    const el = document.getElementById('booking-section');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                    if (!isHoldingActive) handleStartHold();
+                  }}
+                >
+                  {isHoldingActive
+                    ? `Đang giữ chỗ (${formatTimer(holdSecondsLeft)})`
+                    : 'Mua vé ngay'}
+                </button>
+              )}
+            </div>
+
+            {/* Right Column: Status Badge, Title, Date, Venue, Price, Share */}
+            <div className="ct-hero-right-info-box">
+              <div className="ct-meta-badge-row">
+                <span className={`ct-meta-status-pill ${isSoldOut ? 'soldout' : 'available'}`}>
+                  {isSoldOut ? 'Đã bán hết vé' : 'Đang mở bán'}
+                </span>
+              </div>
+
+              <h1 className="ct-event-main-title">{event.title}</h1>
+
+              <div className="ct-meta-info-list">
+                <div className="ct-meta-row-item">
+                  <svg className="ct-meta-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <div className="ct-meta-row-text">
+                    <div className="ct-meta-val-primary">{event.date}</div>
+                    <div className="ct-meta-val-sub">Từ 19:30 (ICT)</div>
+                  </div>
+                </div>
+
+                <div className="ct-meta-row-item">
+                  <svg className="ct-meta-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                  <div className="ct-meta-row-text">
+                    <div className="ct-meta-val-primary">{event.venue}</div>
+                    <div className="ct-meta-val-sub">Việt Nam</div>
+                  </div>
+                </div>
+
+                <div className="ct-meta-row-item">
+                  <svg className="ct-meta-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23"></line>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                  </svg>
+                  <div className="ct-meta-row-text">
+                    <div className="ct-meta-label-sm">Giá vé</div>
+                    <div className="ct-meta-val-price">{event.price}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Share & Social Action Buttons */}
+              <div className="ct-meta-actions-row">
+                <button
+                  type="button"
+                  className="ct-social-btn"
+                  onClick={() => window.open('https://facebook.com', '_blank')}
+                  title="Chia sẻ lên Facebook"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="ct-social-btn"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(window.location.href);
+                    onAddToast({ message: 'Đã sao chép link sự kiện vào bộ nhớ tạm!', type: 'info' });
+                  }}
+                  title="Sao chép link"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                  </svg>
+                </button>
+              </div>
+
             </div>
           </div>
 
