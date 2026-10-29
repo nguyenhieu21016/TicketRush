@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { UserAccount } from '../types';
 
 interface NavbarProps {
   systemStatusText: string;
@@ -7,6 +8,9 @@ interface NavbarProps {
   onOpenMyTickets: () => void;
   onGoHome: () => void;
   myTicketCount: number;
+  currentUser: UserAccount | null;
+  onOpenAuth: (mode: 'login' | 'register') => void;
+  onLogout: () => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -16,12 +20,16 @@ const Navbar: React.FC<NavbarProps> = ({
   onOpenMyTickets,
   onGoHome,
   myTicketCount,
+  currentUser,
+  onOpenAuth,
+  onLogout,
 }) => {
   const [selectedLocation, setSelectedLocation] = useState('Tất cả địa điểm');
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLang, setSelectedLang] = useState<'VN' | 'EN'>('VN');
   const [isLangOpen, setIsLangOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   return (
     <header className="ct-navbar">
@@ -88,40 +96,124 @@ const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Right Nav Items: Vé của tôi, Hiếu Nguyễn & VN */}
+        {/* Right Nav Items: Auth Buttons OR User Profile & Language */}
         <div className="ct-nav-right">
-          
-          {/* My Tickets Button (No emoji, clean text and counter) */}
-          <button
-            type="button"
-            className="ct-nav-btn ct-my-tickets-btn"
-            onClick={onOpenMyTickets}
-            title="Xem danh sách vé đã đặt"
-          >
-            <span>Vé của tôi</span>
-            {myTicketCount > 0 && (
-              <span className="ct-nav-badge">{myTicketCount}</span>
-            )}
-          </button>
+          {currentUser ? (
+            <>
+              {/* My Tickets Button */}
+              <button
+                type="button"
+                className="ct-nav-btn ct-my-tickets-btn"
+                onClick={onOpenMyTickets}
+                title="Xem danh sách vé đã đặt"
+              >
+                <span>Vé của tôi</span>
+                {myTicketCount > 0 && (
+                  <span className="ct-nav-badge">{myTicketCount}</span>
+                )}
+              </button>
 
-          {/* User Profile / Organizer Switcher - Match screenshot style */}
-          <div className="ct-user-profile-group">
-            <button
-              type="button"
-              className="ct-profile-pill-btn"
-              onClick={() => onRoleChange(activeRole === 'customer' ? 'organizer' : 'customer')}
-              title="Chuyển chế độ Khách mua vé / Soát vé"
-            >
-              <span className="ct-profile-name">Hiếu Nguyễn</span>
-              <svg className="ct-user-burger-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
-            </button>
-          </div>
+              {/* User Profile Pill with Dropdown Menu */}
+              <div className="ct-user-profile-group">
+                <button
+                  type="button"
+                  className="ct-profile-pill-btn"
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  title="Tài khoản của bạn"
+                >
+                  <span className="ct-profile-name">{currentUser.name}</span>
+                  <svg
+                    className="ct-user-burger-svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                  </svg>
+                </button>
 
-          {/* Thin Divider between User and Language as shown in image */}
+                {isUserMenuOpen && (
+                  <div className="ct-user-dropdown-menu">
+                    <div className="ct-user-dropdown-header">
+                      <div className="ct-user-dropdown-name">{currentUser.name}</div>
+                      <div className="ct-user-dropdown-email">{currentUser.email}</div>
+                    </div>
+
+                    <div className="ct-user-dropdown-divider" />
+
+                    <button
+                      type="button"
+                      className="ct-user-dropdown-item"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onOpenMyTickets();
+                      }}
+                    >
+                      <span>Vé của tôi</span>
+                      {myTicketCount > 0 && (
+                        <span className="ct-nav-badge">{myTicketCount}</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="ct-user-dropdown-item"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onRoleChange(activeRole === 'customer' ? 'organizer' : 'customer');
+                      }}
+                    >
+                      <span>
+                        {activeRole === 'customer'
+                          ? 'Chuyển sang cổng Soát vé (BTC)'
+                          : 'Chuyển về chế độ Khách mua vé'}
+                      </span>
+                    </button>
+
+                    <div className="ct-user-dropdown-divider" />
+
+                    <button
+                      type="button"
+                      className="ct-user-dropdown-item ct-user-logout-item"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        onLogout();
+                      }}
+                    >
+                      <span>Đăng xuất</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Logged-out state matching CTicket.vn: Đăng nhập | Đăng ký */
+            <div className="ct-auth-nav-buttons">
+              <button
+                type="button"
+                className="ct-nav-auth-btn"
+                onClick={() => onOpenAuth('login')}
+              >
+                Đăng nhập
+              </button>
+              <button
+                type="button"
+                className="ct-nav-auth-btn"
+                onClick={() => onOpenAuth('register')}
+              >
+                Đăng ký
+              </button>
+            </div>
+          )}
+
+          {/* Thin Divider between User/Auth and Language */}
           <div className="ct-nav-vertical-line" />
 
           {/* Language Selector (Clean pure text & chevron, no flag icons) */}

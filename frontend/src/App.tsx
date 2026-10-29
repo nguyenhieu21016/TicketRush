@@ -7,9 +7,10 @@ import SuccessModal from './components/SuccessModal';
 import MyTicketsModal from './components/MyTicketsModal';
 import WaitlistModal from './components/WaitlistModal';
 import OrganizerCheckIn from './components/OrganizerCheckIn';
+import AuthView, { type AuthMode } from './components/AuthView';
 import ToastContainer, { useToasts } from './components/ToastContainer';
 import { useTicketStatus } from './hooks/useTicketStatus';
-import type { ModalTicketInfo, ToastMessage } from './types';
+import type { ModalTicketInfo, ToastMessage, UserAccount } from './types';
 
 function App() {
   const { ticketState, fetchTicketStatus, decrementTicket, TOTAL_TICKETS, API_BASE_URL } = useTicketStatus();
@@ -20,6 +21,29 @@ function App() {
   const [modalInfo, setModalInfo] = useState<ModalTicketInfo | null>(null);
   const [isMyTicketsOpen, setIsMyTicketsOpen] = useState(false);
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
+  const [authScreenMode, setAuthScreenMode] = useState<AuthMode | null>(null);
+
+  // User authentication state persisted in localStorage
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    try {
+      const saved = localStorage.getItem('tr_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      if (currentUser) {
+        localStorage.setItem('tr_current_user', JSON.stringify(currentUser));
+      } else {
+        localStorage.removeItem('tr_current_user');
+      }
+    } catch {
+      // ignore storage error
+    }
+  }, [currentUser]);
 
   // Persistent booked tickets list for local session demo
   const [myTickets, setMyTickets] = useState<ModalTicketInfo[]>(() => {
@@ -87,7 +111,46 @@ function App() {
     );
   }, []);
 
+  const handleAuthSuccess = useCallback(
+    (user: UserAccount, mode: 'login' | 'register') => {
+      setCurrentUser(user);
+      setAuthScreenMode(null);
+      addToast({
+        message:
+          mode === 'register'
+            ? `Đăng ký tài khoản thành công! Xin chào ${user.name}.`
+            : `Đăng nhập thành công! Chào mừng ${user.name} quay trở lại.`,
+        type: 'success',
+      });
+    },
+    [addToast]
+  );
+
+  const handleLogout = useCallback(() => {
+    setCurrentUser(null);
+    setActiveRole('customer');
+    addToast({
+      message: 'Đã đăng xuất khỏi tài khoản.',
+      type: 'info',
+    });
+  }, [addToast]);
+
   const currentEvent = CTICKET_EVENTS.find((e) => e.id === selectedEventId) || CTICKET_EVENTS[11];
+
+  // Dedicated full-screen CTicket Auth View (/auth/login & /auth/register)
+  if (authScreenMode !== null) {
+    return (
+      <div className="ct-app-root">
+        <AuthView
+          initialMode={authScreenMode}
+          onSuccess={handleAuthSuccess}
+          onBackHome={() => setAuthScreenMode(null)}
+          onAddToast={handleAddToast}
+        />
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    );
+  }
 
   return (
     <div className="ct-app-root">
@@ -99,6 +162,12 @@ function App() {
         onOpenMyTickets={() => setIsMyTicketsOpen(true)}
         onGoHome={() => setSelectedEventId(null)}
         myTicketCount={myTickets.filter((t) => t.status !== 'REFUNDED').length}
+        currentUser={currentUser}
+        onOpenAuth={(mode) => {
+          setAuthScreenMode(mode);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onLogout={handleLogout}
       />
 
       {/* 2. Main Content Body */}

@@ -87,3 +87,11 @@ export interface CheckInLog {
   status: 'SUCCESS' | 'ALREADY_CHECKED_IN' | 'NOT_FOUND';
   timestamp: string;
 }
+
+export interface UserAccount {
+  name: string;
+  email: string;
+  phone?: string;
+  provider?: 'email' | 'google';
+}
+
