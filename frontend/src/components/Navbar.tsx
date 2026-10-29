@@ -11,6 +11,10 @@ interface NavbarProps {
   currentUser: UserAccount | null;
   onOpenAuth: (mode: 'login' | 'register') => void;
   onLogout: () => void;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  selectedLocation: string;
+  onLocationChange: (loc: string) => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -23,10 +27,12 @@ const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onOpenAuth,
   onLogout,
+  searchQuery,
+  onSearchChange,
+  selectedLocation,
+  onLocationChange,
 }) => {
-  const [selectedLocation, setSelectedLocation] = useState('Tất cả địa điểm');
   const [isLocationOpen, setIsLocationOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedLang, setSelectedLang] = useState<'VN' | 'EN'>('VN');
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -71,7 +77,7 @@ const Navbar: React.FC<NavbarProps> = ({
                     key={loc}
                     className={`ct-dropdown-option ${selectedLocation === loc ? 'active' : ''}`}
                     onClick={() => {
-                      setSelectedLocation(loc);
+                      onLocationChange(loc);
                       setIsLocationOpen(false);
                     }}
                   >
@@ -90,9 +96,19 @@ const Navbar: React.FC<NavbarProps> = ({
               type="text"
               placeholder="Tìm kiếm sự kiện, nghệ sĩ,..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
               className="ct-pill-input"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                className="ct-pill-clear-btn"
+                onClick={() => onSearchChange('')}
+                title="Xóa từ khóa tìm kiếm"
+              >
+                &times;
+              </button>
+            )}
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import Navbar from './components/Navbar';
-import HeroSection, { CTICKET_EVENTS } from './components/HeroSection';
+import HeroSection, { CTICKET_EVENTS, type EventItemData } from './components/HeroSection';
 import EventDetailView from './components/EventDetailView';
 import Footer from './components/Footer';
 import SuccessModal from './components/SuccessModal';
@@ -22,6 +22,11 @@ function App() {
   const [isMyTicketsOpen, setIsMyTicketsOpen] = useState(false);
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
   const [authScreenMode, setAuthScreenMode] = useState<AuthMode | null>(null);
+
+  // Search & location filter state (US-01)
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('Tất cả địa điểm');
+  const [eventsList] = useState<EventItemData[]>(CTICKET_EVENTS);
 
   // User authentication state persisted in localStorage
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
@@ -135,7 +140,7 @@ function App() {
     });
   }, [addToast]);
 
-  const currentEvent = CTICKET_EVENTS.find((e) => e.id === selectedEventId) || CTICKET_EVENTS[11];
+  const currentEvent = eventsList.find((e) => e.id === selectedEventId) || eventsList[11];
 
   // Dedicated full-screen CTicket Auth View (/auth/login & /auth/register)
   if (authScreenMode !== null) {
@@ -168,6 +173,18 @@ function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onLogout={handleLogout}
+        searchQuery={searchQuery}
+        onSearchChange={(q) => {
+          setSearchQuery(q);
+          if (selectedEventId !== null) setSelectedEventId(null);
+          if (activeRole !== 'customer') setActiveRole('customer');
+        }}
+        selectedLocation={selectedLocation}
+        onLocationChange={(loc) => {
+          setSelectedLocation(loc);
+          if (selectedEventId !== null) setSelectedEventId(null);
+          if (activeRole !== 'customer') setActiveRole('customer');
+        }}
       />
 
       {/* 2. Main Content Body */}
@@ -200,6 +217,13 @@ function App() {
           /* Homepage View (exact layout of cticket_homepage) */
           <div className="ct-container">
             <HeroSection
+              events={eventsList}
+              searchQuery={searchQuery}
+              selectedLocation={selectedLocation}
+              onResetFilters={() => {
+                setSearchQuery('');
+                setSelectedLocation('Tất cả địa điểm');
+              }}
               onSelectEvent={(eventId) => {
                 setSelectedEventId(eventId);
                 window.scrollTo({ top: 0, behavior: 'smooth' });

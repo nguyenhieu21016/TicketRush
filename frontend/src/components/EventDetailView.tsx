@@ -88,13 +88,66 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
   onBack,
 }) => {
   const isAwsEvent = event.id === 12;
-  const tiers = isAwsEvent ? AWS_TIERS : MYTAM_TIERS;
-  const isSoldOut = !isAwsEvent || status === 'soldout' || ticketsLeft <= 0;
+
+  // US-02 AC1, AC2, AC3: Determine exact registration state for the event
+  const effectiveRegState: 'OPEN' | 'SOLD_OUT' | 'NOT_OPEN_YET' | 'CLOSED' | 'CANCELLED' = (() => {
+    if (event.publishStatus === 'CANCELLED') return 'CANCELLED';
+    if (event.registrationState === 'NOT_OPEN_YET') return 'NOT_OPEN_YET';
+    if (event.registrationState === 'CLOSED') return 'CLOSED';
+    if (isAwsEvent) {
+      return status === 'soldout' || ticketsLeft <= 0 ? 'SOLD_OUT' : 'OPEN';
+    }
+    if (event.registrationState === 'SOLD_OUT' || event.badge === 'Đã bán hết vé') {
+      return 'SOLD_OUT';
+    }
+    return 'OPEN';
+  })();
+
+  const isSoldOut = effectiveRegState === 'SOLD_OUT';
+  const isBookingBlocked = effectiveRegState !== 'OPEN';
+
+  const eventTotalCapacity = isAwsEvent ? totalTickets : event.capacity || 1000;
+  const eventCapacityLeft = isAwsEvent
+    ? ticketsLeft
+    : effectiveRegState === 'SOLD_OUT'
+    ? 0
+    : Math.max(0, (event.capacity || 1000) - (event.soldCount || 0));
+
+  const defaultEventTiers: TicketTier[] = [
+    {
+      id: 'standard_pass',
+      name: 'Vé Tiêu Chuẩn (Standard Pass)',
+      priceText: event.price,
+      priceValue: 250000,
+      description: `Vé tham dự chính thức sự kiện ${event.title} tại ${event.venue}.`,
+      availableCount: effectiveRegState === 'OPEN' ? eventCapacityLeft : 0,
+      maxPerOrder: 1,
+      badge:
+        effectiveRegState === 'OPEN'
+          ? 'ĐANG MỞ BÁN'
+          : effectiveRegState === 'NOT_OPEN_YET'
+          ? 'CHỜ MỞ BÁN'
+          : effectiveRegState === 'SOLD_OUT'
+          ? 'HẾT VÉ'
+          : 'ĐÃ ĐÓNG',
+    },
+  ];
+
+  const tiers = isAwsEvent
+    ? AWS_TIERS
+    : event.id === 1
+    ? MYTAM_TIERS
+    : defaultEventTiers;
 
   const [activeTab, setActiveTab] = useState<'schedule' | 'about' | 'artists' | 'organizer'>('schedule');
   const [selectedTier, setSelectedTier] = useState<string>(tiers[0]?.id || 'early_bird');
   const [isHoldingActive, setIsHoldingActive] = useState<boolean>(false);
   const [holdSecondsLeft, setHoldSecondsLeft] = useState<number>(600); // 10 minutes hold (US-11)
+
+  useEffect(() => {
+    setSelectedTier(tiers[0]?.id || 'early_bird');
+    setIsHoldingActive(false);
+  }, [event.id]);
 
   const [formData, setFormData] = useState<RegistrationPayload>({
     full_name: '',
@@ -132,6 +185,20 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
   };
 
   const handleStartHold = () => {
+    if (effectiveRegState === 'NOT_OPEN_YET') {
+      onAddToast({
+        message: 'Sự kiện hiện chưa đến thời gian mở cổng đăng ký! (US-02 AC2)',
+        type: 'warning',
+      });
+      return;
+    }
+    if (effectiveRegState === 'CLOSED' || effectiveRegState === 'CANCELLED') {
+      onAddToast({
+        message: 'Cổng đăng ký của sự kiện này đã đóng hoặc sự kiện đã hủy! (US-02 AC2)',
+        type: 'error',
+      });
+      return;
+    }
     if (isSoldOut) {
       onOpenWaitlist();
       return;
@@ -280,13 +347,31 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                 </div>
               </div>
 
-              {/* Main Pink Action Button */}
-              {isSoldOut ? (
+              {/* Main Pink Action Button (US-02 AC2 & AC3) */}
+              {effectiveRegState === 'NOT_OPEN_YET' ? (
+                <button
+                  type="button"
+                  className="ct-hero-action-btn btn-disabled-state"
+                  disabled
+                  title="Sự kiện chưa đến thời gian mở cổng đăng ký (US-02 AC2)"
+                >
+                  Chưa mở đăng ký
+                </button>
+              ) : effectiveRegState === 'CLOSED' || effectiveRegState === 'CANCELLED' ? (
+                <button
+                  type="button"
+                  className="ct-hero-action-btn btn-disabled-state"
+                  disabled
+                  title="Cổng đăng ký đã đóng hoặc sự kiện đã hủy (US-02 AC2)"
+                >
+                  {effectiveRegState === 'CANCELLED' ? 'Sự kiện đã hủy' : 'Đã đóng đăng ký'}
+                </button>
+              ) : isSoldOut ? (
                 <button
                   type="button"
                   className="ct-hero-action-btn btn-soldout"
                   onClick={onOpenWaitlist}
-                  title="Sự kiện đã hết vé. Bấm tham gia hàng đợi chờ vé (Waitlist)"
+                  title="Sự kiện đã hết vé. Bấm tham gia hàng đợi chờ vé (Waitlist - US-02 AC3)"
                 >
                   Đã bán hết vé - Vào Waitlist
                 </button>
@@ -307,15 +392,35 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
               )}
             </div>
 
-            {/* Right Column: Status Badge, Title, Date, Venue, Price, Share */}
+            {/* Right Column: Status Badge, Title, Date, Registration Window, Venue, Price, Capacity, Share */}
             <div className="ct-hero-right-info-box">
               <div className="ct-meta-badge-row">
-                <span className={`ct-meta-status-pill ${isSoldOut ? 'soldout' : 'available'}`}>
-                  {isSoldOut ? 'Đã bán hết vé' : 'Đang mở bán'}
+                <span
+                  className={`ct-meta-status-pill ${
+                    effectiveRegState === 'OPEN'
+                      ? 'available'
+                      : effectiveRegState === 'NOT_OPEN_YET'
+                      ? 'upcoming'
+                      : 'soldout'
+                  }`}
+                >
+                  {effectiveRegState === 'OPEN'
+                    ? 'Đang mở bán'
+                    : effectiveRegState === 'NOT_OPEN_YET'
+                    ? 'Chờ mở bán'
+                    : effectiveRegState === 'CLOSED'
+                    ? 'Đã đóng đăng ký'
+                    : effectiveRegState === 'CANCELLED'
+                    ? 'Sự kiện đã hủy'
+                    : 'Đã bán hết vé'}
                 </span>
               </div>
 
               <h1 className="ct-event-main-title">{event.title}</h1>
+
+              {event.desc && (
+                <p className="ct-event-hero-desc">{event.desc}</p>
+              )}
 
               <div className="ct-meta-info-list">
                 <div className="ct-meta-row-item">
@@ -327,7 +432,9 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                   </svg>
                   <div className="ct-meta-row-text">
                     <div className="ct-meta-val-primary">{event.date}</div>
-                    <div className="ct-meta-val-sub">Từ 19:30 (ICT)</div>
+                    <div className="ct-meta-val-sub">
+                      Cửa sổ đăng ký: {event.registrationWindow || '01/10/2026 09:00 - 27/11/2026 23:59'}
+                    </div>
                   </div>
                 </div>
 
@@ -338,7 +445,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                   </svg>
                   <div className="ct-meta-row-text">
                     <div className="ct-meta-val-primary">{event.venue}</div>
-                    <div className="ct-meta-val-sub">Việt Nam</div>
+                    <div className="ct-meta-val-sub">{event.locationCity || 'Việt Nam'}</div>
                   </div>
                 </div>
 
@@ -348,7 +455,9 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                     <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                   </svg>
                   <div className="ct-meta-row-text">
-                    <div className="ct-meta-label-sm">Giá vé</div>
+                    <div className="ct-meta-label-sm">
+                      Giá vé &amp; Tình trạng chỗ ({eventCapacityLeft} / {eventTotalCapacity} chỗ còn trống)
+                    </div>
                     <div className="ct-meta-val-price">{event.price}</div>
                   </div>
                 </div>
@@ -451,10 +560,16 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
 
               {/* Session Selector */}
               <div className="ct-session-card">
-                <div className="ct-session-date-label">Thời gian: {event.date} (ICT)</div>
+                <div className="ct-session-date-label">
+                  Cửa sổ đăng ký: {event.registrationWindow || '01/10/2026 09:00 - 27/11/2026 23:59'}
+                </div>
                 <div className="ct-session-chips">
-                  <button type="button" className="ct-session-chip active">
-                    09:00 - 12:00
+                  <button
+                    type="button"
+                    className={`ct-session-chip ${effectiveRegState === 'OPEN' ? 'active' : ''}`}
+                    disabled={isBookingBlocked}
+                  >
+                    09:00 - 12:00 ({effectiveRegState === 'OPEN' ? 'Còn chỗ' : effectiveRegState === 'NOT_OPEN_YET' ? 'Chờ mở bán' : effectiveRegState === 'SOLD_OUT' ? 'Hết vé' : 'Đã đóng'})
                   </button>
                   <button type="button" className="ct-session-chip" disabled>
                     14:00 (Hết suất)
@@ -462,7 +577,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                 </div>
               </div>
 
-              {/* Live Capacity & Redis Status (US-11, US-12, US-13) */}
+              {/* Live Capacity & Redis Status (US-02 AC1, US-09, US-11) */}
               <div className="ct-redis-capacity-box">
                 <div className="ct-redis-header">
                   <span className="ct-redis-live-badge">[LIVE REDIS]</span>
@@ -470,8 +585,8 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                 </div>
                 <div className="ct-redis-stat-row">
                   <div className="ct-stat-num">
-                    <span className="ct-stat-left">{isAwsEvent ? ticketsLeft : 0}</span>
-                    <span className="ct-stat-total"> / {isAwsEvent ? totalTickets : 300} vé</span>
+                    <span className="ct-stat-left">{eventCapacityLeft}</span>
+                    <span className="ct-stat-total"> / {eventTotalCapacity} vé còn trống</span>
                   </div>
                   <button
                     type="button"
@@ -486,7 +601,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                   <div
                     className="ct-progress-fill"
                     style={{
-                      width: `${isAwsEvent ? Math.max(0, (ticketsLeft / totalTickets) * 100) : 0}%`,
+                      width: `${Math.max(0, Math.min(100, (eventCapacityLeft / eventTotalCapacity) * 100))}%`,
                     }}
                   />
                 </div>
@@ -508,7 +623,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                     <label
                       key={t.id}
                       className={`ct-tier-item ${selectedTier === t.id ? 'selected' : ''} ${
-                        t.availableCount === 0 && !isAwsEvent ? 'disabled' : ''
+                        isBookingBlocked || (t.availableCount === 0 && !isAwsEvent) ? 'disabled' : ''
                       }`}
                     >
                       <div className="ct-tier-radio-wrap">
@@ -518,7 +633,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                           value={t.id}
                           checked={selectedTier === t.id}
                           onChange={() => setSelectedTier(t.id)}
-                          disabled={t.availableCount === 0 && !isAwsEvent}
+                          disabled={isBookingBlocked || (t.availableCount === 0 && !isAwsEvent)}
                         />
                       </div>
                       <div className="ct-tier-content">
@@ -535,8 +650,26 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                   ))}
                 </div>
 
-                {/* 10-Minute Hold Status Banner (US-11) */}
-                {isHoldingActive ? (
+                {/* Registration Window / Hold Status Banner (US-02 AC2 & US-11) */}
+                {effectiveRegState === 'NOT_OPEN_YET' ? (
+                  <div className="ct-reg-blocked-banner upcoming">
+                    <strong>Chưa mở đăng ký (US-02 AC2)</strong>
+                    <p>
+                      Cửa sổ đăng ký của sự kiện mở từ {event.registrationWindow || '01/11/2026 20:00'}. Hệ thống chưa cho phép tạo booking mới ở thời điểm hiện tại.
+                    </p>
+                  </div>
+                ) : effectiveRegState === 'CLOSED' || effectiveRegState === 'CANCELLED' ? (
+                  <div className="ct-reg-blocked-banner closed">
+                    <strong>
+                      {effectiveRegState === 'CANCELLED'
+                        ? 'Sự kiện đã hủy (US-02 AC2)'
+                        : 'Cổng đăng ký đã đóng (US-02 AC2)'}
+                    </strong>
+                    <p>
+                      Thời hạn đăng ký ({event.registrationWindow || 'Đã kết thúc'}) đã khép lại. Hệ thống không tiếp nhận thêm lượt đặt vé mới.
+                    </p>
+                  </div>
+                ) : isHoldingActive ? (
                   <div className="ct-hold-active-banner">
                     <div>
                       <strong>Đang giữ vé trong {formatTimer(holdSecondsLeft)}</strong>
@@ -565,7 +698,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                       placeholder="Nguyễn Văn A"
                       value={formData.full_name}
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      disabled={isSoldOut}
+                      disabled={isBookingBlocked}
                     />
                     {formErrors.name && <span className="ct-field-error">{formErrors.name}</span>}
                   </div>
@@ -578,7 +711,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                       placeholder="nguyenvana@gmail.com"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      disabled={isSoldOut}
+                      disabled={isBookingBlocked}
                     />
                     {formErrors.email && <span className="ct-field-error">{formErrors.email}</span>}
                     <span className="ct-field-hint">Mỗi email chỉ được cấp 1 vé duy nhất (US-08).</span>
@@ -592,7 +725,7 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                       placeholder="0912345678"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      disabled={isSoldOut}
+                      disabled={isBookingBlocked}
                     />
                     {formErrors.phone && <span className="ct-field-error">{formErrors.phone}</span>}
                   </div>
@@ -613,13 +746,29 @@ const EventDetailView: React.FC<EventDetailViewProps> = ({
                     </div>
                   </div>
 
-                  {isSoldOut ? (
+                  {effectiveRegState === 'NOT_OPEN_YET' ? (
+                    <button
+                      type="button"
+                      className="ct-submit-booking-btn btn-disabled-state"
+                      disabled
+                    >
+                      Chưa đến thời gian mở đăng ký (US-02)
+                    </button>
+                  ) : effectiveRegState === 'CLOSED' || effectiveRegState === 'CANCELLED' ? (
+                    <button
+                      type="button"
+                      className="ct-submit-booking-btn btn-disabled-state"
+                      disabled
+                    >
+                      {effectiveRegState === 'CANCELLED' ? 'Sự kiện đã hủy' : 'Đã đóng cổng đăng ký (US-02)'}
+                    </button>
+                  ) : isSoldOut ? (
                     <button
                       type="button"
                       className="ct-submit-booking-btn btn-soldout"
                       onClick={onOpenWaitlist}
                     >
-                      Hết vé - Đăng ký nhận thông báo (Waitlist)
+                      Hết vé - Đăng ký vào danh sách chờ (Waitlist)
                     </button>
                   ) : (
                     <button
