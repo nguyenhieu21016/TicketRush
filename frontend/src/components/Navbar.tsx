@@ -281,6 +281,16 @@ const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
+          {/* Quick Role Switcher for Demo (Customer <-> Organizer BTC Portal) */}
+          <button
+            type="button"
+            className={`ct-org-switch-btn ${activeRole === 'organizer' ? 'active' : ''}`}
+            onClick={() => onRoleChange(activeRole === 'customer' ? 'organizer' : 'customer')}
+            title="Chuyển đổi giữa giao diện Khách hàng và Trung tâm Quản trị Ban Tổ Chức (US-03, US-04, US-19)"
+          >
+            {activeRole === 'customer' ? 'Cổng BTC' : 'Về Trang Khách'}
+          </button>
+
           {/* AWS Live Status indicator */}
           <div className="ct-aws-indicator" title="Hạ tầng AWS Live Status">
             <span className="ct-indicator-dot" />

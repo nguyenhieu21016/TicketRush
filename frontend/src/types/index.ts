@@ -32,6 +32,7 @@ export interface ToastMessage {
 
 export interface ModalTicketInfo {
   ticketId: string;
+  eventId?: number;
   attendeeName: string;
   attendeeEmail: string;
   phone?: string;
@@ -41,7 +42,9 @@ export interface ModalTicketInfo {
   eventDate?: string;
   qrCodeUrl?: string;
   createdAt?: string;
-  status?: 'ISSUED' | 'CHECKED_IN' | 'REFUNDED';
+  status?: 'ISSUED' | 'CHECKED_IN' | 'REFUNDED' | 'PENDING_PAYMENT';
+  refundStatus?: 'NONE' | 'PENDING' | 'SUCCEEDED' | 'FAILED';
+  paymentRef?: string;
 }
 
 export type TicketStatus = 'open' | 'low' | 'soldout';
@@ -78,14 +81,41 @@ export interface WaitlistEntry {
   fullName: string;
   queueNumber: number;
   createdAt: string;
+  eventId?: number;
+  eventName?: string;
+  status?: 'WAITING' | 'INVITED' | 'EXPIRED' | 'ACCEPTED';
 }
 
 export interface CheckInLog {
   ticketId: string;
   attendeeName: string;
   attendeeEmail: string;
-  status: 'SUCCESS' | 'ALREADY_CHECKED_IN' | 'NOT_FOUND';
+  status:
+    | 'SUCCESS'
+    | 'ALREADY_CHECKED_IN'
+    | 'REFUNDED_OR_CANCELLED'
+    | 'PENDING_PAYMENT'
+    | 'UNAUTHORIZED_EVENT'
+    | 'NOT_FOUND';
   timestamp: string;
+  reason?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  role: 'ORGANIZER' | 'STAFF' | 'CUSTOMER' | 'SYSTEM';
+  action:
+    | 'CREATE_EVENT'
+    | 'UPDATE_EVENT'
+    | 'UPDATE_CAPACITY'
+    | 'CHECK_IN'
+    | 'CANCEL_REFUND'
+    | 'ACCESS_DENIED';
+  target: string;
+  detail: string;
+  status: 'SUCCESS' | 'REJECTED';
 }
 
 export interface UserAccount {
@@ -93,5 +123,6 @@ export interface UserAccount {
   email: string;
   phone?: string;
   provider?: 'email' | 'google';
+  role?: 'customer' | 'organizer' | 'staff';
 }
 
