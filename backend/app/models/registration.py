@@ -1,12 +1,5 @@
 """Bảng đơn đăng ký vé – ánh xạ vào bảng `tickets` do Hiếu tạo (db/schema.sql).
 
-Thay đổi so với phiên bản cũ:
-  - __tablename__  : "registrations" → "tickets"
-  - ticket_id      : @property tính từ id → cột thật VARCHAR(64) UNIQUE (sinh UUID khi tạo)
-  - id             : Integer → BigInteger  (khớp BIGINT AUTO_INCREMENT của schema)
-  - Thêm cột status, qr_s3_url theo schema của Hiếu
-  - Bỏ UniqueConstraint(event_id, email): schema của Hiếu không có; chặn trùng email
-    vẫn được đảm bảo ở tầng Redis (seat_counter.mark) và tầng nghiệp vụ.
 """
 from datetime import datetime
 from typing import Optional
