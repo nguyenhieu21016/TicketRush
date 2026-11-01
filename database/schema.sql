@@ -5,6 +5,7 @@ CREATE DATABASE IF NOT EXISTS ticketrush_db
 
 USE ticketrush_db;
 
+/* Delete these two lines before pushing to rds */
 DROP TABLE IF EXISTS tickets;
 DROP TABLE IF EXISTS events;
 
