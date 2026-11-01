@@ -7,24 +7,54 @@
 let EVENTS_DATA = [];
 
 // Gọi API lấy danh sách sự kiện từ Backend FastAPI
+
 async function fetchEventsFromAPI() {
   try {
     const response = await fetch('http://localhost:8000/api/events/');
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+
     const data = await response.json();
-    
-    // Nếu API trả về mảng events
-    EVENTS_DATA = (data && data.events) ? data.events : [];
+
+    // Convert API data into frontend format
+    EVENTS_DATA = (data.events || []).map(event => {
+      const eventDate = new Date(event.event_date);
+
+      return {
+        id: event.id,
+        title: event.name,
+        description: event.description,
+        category: event.category,
+        venue: event.venue,
+        image: event.image_url,
+
+        dateRank: eventDate.getTime(),
+        month: eventDate.toLocaleDateString('en-US', {
+          month: 'short'
+        }).toUpperCase(),
+        day: String(eventDate.getDate()).padStart(2, '0'),
+        weekday: eventDate.toLocaleDateString('en-US', {
+          weekday: 'short'
+        }).toUpperCase(),
+
+        price: Number(event.price),
+        currency: event.currency
+      };
+    });
+
     state.totalEventsCount = data.total || EVENTS_DATA.length;
+
   } catch (error) {
-    console.warn('Chưa kết nối được tới API Backend (http://localhost:8000/api/events/):', error);
+    console.error('Failed to fetch events:', error);
     EVENTS_DATA = [];
     state.totalEventsCount = 0;
   }
+
   render();
 }
+
 
 // App State
 const state = {
@@ -56,7 +86,7 @@ const elements = {
   prevPageBtn: document.getElementById('prevPageBtn'),
   nextPageBtn: document.getElementById('nextPageBtn'),
   pageNumbers: document.getElementById('pageNumbers'),
-  
+
   // Modals
   bookingModalBackdrop: document.getElementById('bookingModalBackdrop'),
   closeBookingModal: document.getElementById('closeBookingModal'),
@@ -74,7 +104,7 @@ const elements = {
   bookingName: document.getElementById('bookingName'),
   bookingEmail: document.getElementById('bookingEmail'),
   btnConfirmBooking: document.getElementById('btnConfirmBooking'),
-  
+
   // Auth
   authModalBackdrop: document.getElementById('authModalBackdrop'),
   closeAuthModal: document.getElementById('closeAuthModal'),
@@ -85,7 +115,7 @@ const elements = {
   authSubmitBtn: document.getElementById('authSubmitBtn'),
   authFooterText: document.getElementById('authFooterText'),
   authForm: document.getElementById('authForm'),
-  
+
   // Toast
   toastNotification: document.getElementById('toastNotification'),
   toastMessage: document.getElementById('toastMessage')
@@ -217,7 +247,7 @@ function closeDropdown() {
 function handleSearchInput(e) {
   state.searchQuery = e.target.value.trim().toLowerCase();
   state.currentPage = 1;
-  
+
   if (state.searchQuery.length > 0) {
     elements.searchClearBtn.style.display = 'block';
     elements.shortcutBadge.style.opacity = '0';
@@ -225,7 +255,7 @@ function handleSearchInput(e) {
     elements.searchClearBtn.style.display = 'none';
     elements.shortcutBadge.style.opacity = '1';
   }
-  
+
   render();
 }
 
@@ -243,11 +273,11 @@ function handleSearchClear() {
 function setSortOrder(sortKey, sortLabel) {
   state.sortOrder = sortKey;
   elements.currentSortText.textContent = sortLabel;
-  
+
   elements.sortDropdownMenu.querySelectorAll('.dropdown-item').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-sort') === sortKey);
   });
-  
+
   closeDropdown();
   render();
 }
@@ -258,7 +288,7 @@ function getFilteredEvents() {
 
   // Filter by query
   if (state.searchQuery) {
-    list = list.filter(evt => 
+    list = list.filter(evt =>
       evt.title.toLowerCase().includes(state.searchQuery) ||
       evt.venue.toLowerCase().includes(state.searchQuery) ||
       evt.category.toLowerCase().includes(state.searchQuery)
@@ -316,7 +346,7 @@ function render() {
   elements.eventsGrid.querySelectorAll('.btn-book').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const eventId = e.currentTarget.getAttribute('data-id');
-      const eventData = EVENTS_DATA.find(item => item.id === eventId);
+      const eventData = EVENTS_DATA.find(item => item.id === Number(eventId));
       if (eventData) {
         openBookingModal(eventData);
       }
