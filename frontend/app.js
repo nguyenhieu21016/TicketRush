@@ -3,166 +3,28 @@
  * Vanilla JavaScript (ES6+)
  */
 
-// Event Dataset (London events matching screenshot and extensions)
-const EVENTS_DATA = [
-  {
-    id: 'evt-1',
-    month: 'NOV',
-    day: '06',
-    weekday: 'FRI',
-    title: 'Jungle',
-    price: 45,
-    currency: '£',
-    venue: 'Alexandra Palace, London',
-    category: 'Music / Soul',
-    image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
-    dateRank: 1
-  },
-  {
-    id: 'evt-2',
-    month: 'NOV',
-    day: '07',
-    weekday: 'SAT',
-    title: 'Arsenal vs. Newcastle United',
-    price: 85,
-    currency: '£',
-    venue: 'Emirates Stadium, London',
-    category: 'Premier League',
-    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80',
-    dateRank: 2
-  },
-  {
-    id: 'evt-3',
-    month: 'NOV',
-    day: '08',
-    weekday: 'SUN',
-    title: 'The Sunday Comedy Club',
-    price: 22,
-    currency: '£',
-    venue: 'Soho Theatre, London',
-    category: 'Stand-up Comedy',
-    image: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?auto=format&fit=crop&w=800&q=80',
-    dateRank: 3
-  },
-  {
-    id: 'evt-4',
-    month: 'NOV',
-    day: '11',
-    weekday: 'WED',
-    title: 'The Royal Ballet: The Nutcracker',
-    price: 38,
-    currency: '£',
-    venue: 'Royal Opera House, Covent Garden',
-    category: 'Ballet / Dance',
-    image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=800&q=80',
-    dateRank: 4
-  },
-  {
-    id: 'evt-5',
-    month: 'NOV',
-    day: '13',
-    weekday: 'FRI',
-    title: 'Bicep presents CHROMA',
-    price: 49,
-    currency: '£',
-    venue: 'Drumsheds, London',
-    category: 'Electronic / Live AV',
-    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80',
-    dateRank: 5
-  },
-  {
-    id: 'evt-6',
-    month: 'NOV',
-    day: '14',
-    weekday: 'SAT',
-    title: 'Late Night Jazz Sessions',
-    price: 32,
-    currency: '£',
-    venue: "Ronnie Scott's, Soho",
-    category: 'Jazz & Soul',
-    image: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=800&q=80',
-    dateRank: 6
-  },
-  // Additional events for realistic pagination
-  {
-    id: 'evt-7',
-    month: 'NOV',
-    day: '18',
-    weekday: 'WED',
-    title: 'London Symphony Orchestra: Beethoven No. 9',
-    price: 35,
-    currency: '£',
-    venue: 'Barbican Centre, London',
-    category: 'Classical',
-    image: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=800&q=80',
-    dateRank: 7
-  },
-  {
-    id: 'evt-8',
-    month: 'NOV',
-    day: '20',
-    weekday: 'FRI',
-    title: 'Four Tet & Floating Points All Night Long',
-    price: 42,
-    currency: '£',
-    venue: 'Brixton Academy, London',
-    category: 'Electronic',
-    image: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=800&q=80',
-    dateRank: 8
-  },
-  {
-    id: 'evt-9',
-    month: 'NOV',
-    day: '22',
-    weekday: 'SUN',
-    title: 'Chelsea vs. Manchester City',
-    price: 95,
-    currency: '£',
-    venue: 'Stamford Bridge, London',
-    category: 'Premier League',
-    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
-    dateRank: 9
-  },
-  {
-    id: 'evt-10',
-    month: 'NOV',
-    day: '25',
-    weekday: 'WED',
-    title: 'Hamilton — West End Gala',
-    price: 65,
-    currency: '£',
-    venue: 'Victoria Palace Theatre, London',
-    category: 'Musical Theatre',
-    image: 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=800&q=80',
-    dateRank: 10
-  },
-  {
-    id: 'evt-11',
-    month: 'NOV',
-    day: '27',
-    weekday: 'FRI',
-    title: 'Candlelight: Best of Hans Zimmer',
-    price: 28,
-    currency: '£',
-    venue: 'Southwark Cathedral, London',
-    category: 'Live Strings',
-    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
-    dateRank: 11
-  },
-  {
-    id: 'evt-12',
-    month: 'NOV',
-    day: '29',
-    weekday: 'SUN',
-    title: 'London Indie Film Fest Gala Screening',
-    price: 18,
-    currency: '£',
-    venue: 'BFI Southbank, London',
-    category: 'Cinema & Arts',
-    image: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80',
-    dateRank: 12
+// Event Dataset — ban đầu để rỗng để lấy từ API backend
+let EVENTS_DATA = [];
+
+// Gọi API lấy danh sách sự kiện từ Backend FastAPI
+async function fetchEventsFromAPI() {
+  try {
+    const response = await fetch('http://localhost:8000/api/events/');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    
+    // Nếu API trả về mảng events
+    EVENTS_DATA = (data && data.events) ? data.events : [];
+    state.totalEventsCount = data.total || EVENTS_DATA.length;
+  } catch (error) {
+    console.warn('Chưa kết nối được tới API Backend (http://localhost:8000/api/events/):', error);
+    EVENTS_DATA = [];
+    state.totalEventsCount = 0;
   }
-];
+  render();
+}
 
 // App State
 const state = {
@@ -209,6 +71,8 @@ const elements = {
   qtyVal: document.getElementById('qtyVal'),
   summarySubtotal: document.getElementById('summarySubtotal'),
   summaryTotal: document.getElementById('summaryTotal'),
+  bookingName: document.getElementById('bookingName'),
+  bookingEmail: document.getElementById('bookingEmail'),
   btnConfirmBooking: document.getElementById('btnConfirmBooking'),
   
   // Auth
@@ -230,7 +94,8 @@ const elements = {
 // Initialize Application
 function init() {
   bindEvents();
-  render();
+  render(); // vẽ ban đầu (rỗng)
+  fetchEventsFromAPI(); // gọi API lấy dữ liệu thật
 }
 
 // Event Bindings
@@ -317,8 +182,17 @@ function bindEvents() {
   });
 
   elements.btnConfirmBooking.addEventListener('click', () => {
+    const name = elements.bookingName.value.trim();
+    const email = elements.bookingEmail.value.trim();
+
+    if (!name || !email) {
+      showToast('Please enter your name and email to receive tickets.');
+      elements.bookingName.focus();
+      return;
+    }
+
     closeAllModals();
-    showToast(`Order confirmed! ${state.ticketQuantity}x tickets sent to your email.`);
+    showToast(`Order confirmed for ${name}! ${state.ticketQuantity}x tickets sent to ${email}.`);
   });
 
   // Auth Modals

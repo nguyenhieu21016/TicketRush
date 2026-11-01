@@ -744,10 +744,20 @@ body {
   box-shadow: var(--shadow-overlay);
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
   transform: translateY(16px) scale(0.98);
   transition: all var(--transition-normal);
+}
+
+.booking-dialog-content {
+  overflow-y: auto;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-backdrop.active .modal-dialog {
@@ -786,7 +796,7 @@ body {
 
 .booking-event-img-wrap {
   width: 100%;
-  height: 180px;
+  height: 140px;
   overflow: hidden;
 }
 
@@ -797,34 +807,34 @@ body {
 }
 
 .booking-event-meta {
-  padding: 16px 20px 8px;
+  padding: 12px 20px 4px;
 }
 
 .booking-date {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--primary);
   text-transform: uppercase;
 }
 
 .booking-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: var(--text-main);
-  margin: 4px 0;
+  margin: 2px 0;
   line-height: 1.25;
 }
 
 .booking-venue {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
 .booking-body {
-  padding: 16px 20px 24px;
+  padding: 12px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .field-label {
@@ -844,7 +854,7 @@ body {
 .ticket-tier {
   border: 1.5px solid var(--border-subtle);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -913,6 +923,46 @@ body {
   text-align: center;
   font-size: 14px;
   font-weight: 700;
+}
+
+.booking-customer-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #F9FAFB;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.booking-customer-fields .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.booking-customer-fields .form-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.booking-customer-fields .form-input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--text-main);
+  background: var(--surface);
+  transition: all var(--transition-fast);
+}
+
+.booking-customer-fields .form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(240, 77, 40, 0.12);
 }
 
 .order-summary {
@@ -1132,5 +1182,14 @@ body {
   .footer-links {
     flex-wrap: wrap;
     gap: 14px;
+  }
+
+  .modal-dialog {
+    max-height: 94vh;
+    border-radius: 12px;
+  }
+
+  .booking-dialog-content {
+    max-height: 94vh;
   }
 }
