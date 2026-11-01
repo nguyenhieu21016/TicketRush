@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketRush — Real tickets. Secure checkout. All set.</title>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="site-header">
+    <div class="header-inner container">
+      <!-- Logo -->
+      <a href="#" class="brand-logo" aria-label="TicketRush Home">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" rx="6" fill="#F04D28"/>
+            <!-- Stylized ticket voucher cutout icon -->
+            <path d="M7 6C5.89543 6 5 6.89543 5 8V9.5C6.10457 9.5 7 10.3954 7 11.5C7 12.6046 6.10457 13.5 5 13.5V16C5 17.1046 5.89543 18 7 18H17C18.1046 18 19 17.1046 19 16V13.5C17.8954 13.5 17 12.6046 17 11.5C17 10.3954 17.8954 9.5 19 9.5V8C19 6.89543 18.1046 6 17 6H7Z" fill="white" fill-rule="evenodd" clip-rule="evenodd"/>
+            <path d="M12 8.5V9.5M12 11.5V12.5M12 14.5V15.5" stroke="#F04D28" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="brand-name">TicketRush</span>
+      </a>
+
+      <!-- Search Bar -->
+      <div class="search-container">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Search artists, events or venues" 
+          autocomplete="off"
+          aria-label="Search events"
+        >
+        <span class="search-badge" id="shortcutBadge">⌘ K</span>
+        <button type="button" class="search-clear-btn" id="searchClearBtn" aria-label="Clear search">×</button>
+      </div>
+
+      <!-- Auth Actions -->
+      <div class="auth-actions">
+        <button type="button" class="btn btn-outline" id="btnSignUp">Sign up</button>
+        <button type="button" class="btn btn-primary" id="btnLogIn">Log in</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content container">
+    <!-- Huge Display Heading -->
+    <h1 class="page-title">Events</h1>
+
+    <!-- Filter & Sub-heading Row -->
+    <div class="filter-bar">
+      <div class="filter-left">
+        <h2 class="section-title">Events</h2>
+        <span class="counter-badge" id="eventsCountBadge">48</span>
+      </div>
+
+      <div class="filter-right">
+        <span class="sort-label">Sort by:</span>
+        <div class="custom-dropdown" id="sortDropdown">
+          <button type="button" class="dropdown-trigger" id="sortDropdownTrigger">
+            <span id="currentSortText">Soonest first</span>
+            <svg class="dropdown-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="sortDropdownMenu">
+            <button type="button" class="dropdown-item active" data-sort="soonest">Soonest first</button>
+            <button type="button" class="dropdown-item" data-sort="price-low">Price: Low to High</button>
+            <button type="button" class="dropdown-item" data-sort="price-high">Price: High to Low</button>
+            <button type="button" class="dropdown-item" data-sort="name">Alphabetical (A-Z)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events Grid -->
+    <div class="events-grid" id="eventsGrid">
+      <!-- Cards will be populated by JavaScript (or default SSR static layout) -->
+    </div>
+
+    <!-- Empty State (hidden by default) -->
+    <div class="empty-state" id="emptyState" style="display: none;">
+      <div class="empty-icon">🔍</div>
+      <h3>No events found</h3>
+      <p>Try searching for a different artist, genre, or keyword.</p>
+      <button type="button" class="btn btn-outline" id="resetSearchBtn">Reset filters</button>
+    </div>
+
+    <!-- Pagination & Results Count Bar -->
+    <div class="pagination-section">
+      <div class="results-summary" id="resultsSummary">
+        Showing 1–6 of 48 events in London
+      </div>
+
+      <nav class="pagination-controls" aria-label="Pagination Navigation">
+        <button type="button" class="page-btn page-arrow" id="prevPageBtn" disabled aria-label="Previous page">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <div class="page-numbers" id="pageNumbers">
+          <button type="button" class="page-btn active" data-page="1">1</button>
+          <button type="button" class="page-btn" data-page="2">2</button>
+          <button type="button" class="page-btn" data-page="3">3</button>
+          <span class="page-ellipsis">…</span>
+          <button type="button" class="page-btn" data-page="8">8</button>
+        </div>
+        <button type="button" class="page-btn page-arrow" id="nextPageBtn" aria-label="Next page">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </nav>
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="footer-inner container">
+      <!-- Trust Badge -->
+      <div class="footer-trust">
+        <svg class="trust-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F04D28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <polyline points="9 12 11 14 15 10"></polyline>
+        </svg>
+        <span>Real tickets. Secure checkout. All set.</span>
+      </div>
+
+      <!-- Links & Copyright -->
+      <div class="footer-links">
+        <a href="#help" class="footer-link">Need a hand?</a>
+        <a href="#terms" class="footer-link">Terms</a>
+        <a href="#privacy" class="footer-link">Privacy</a>
+        <span class="footer-copy">© 2026 TicketRush</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Booking Modal / Drawer -->
+  <div class="modal-backdrop" id="bookingModalBackdrop">
+    <div class="modal-dialog booking-dialog" role="dialog" aria-modal="true" aria-labelledby="bookingEventTitle">
+      <button type="button" class="modal-close-btn" id="closeBookingModal" aria-label="Close dialog">✕</button>
+      <div class="booking-dialog-content">
+        <div class="booking-header">
+          <div class="booking-event-img-wrap">
+            <img id="bookingImg" src="" alt="Event banner">
+          </div>
+          <div class="booking-event-meta">
+            <span class="booking-date" id="bookingDate">NOV 06 • FRI</span>
+            <h3 id="bookingEventTitle" class="booking-title">Event Title</h3>
+            <p class="booking-venue" id="bookingVenue">London, United Kingdom</p>
+          </div>
+        </div>
+
+        <div class="booking-body">
+          <div class="ticket-selection">
+            <label class="field-label">Select Ticket Tier</label>
+            <div class="ticket-tier active" data-price-mult="1">
+              <div class="tier-info">
+                <strong>Standard Admission</strong>
+                <span>General entry access</span>
+              </div>
+              <div class="tier-price" id="tierPrice">£45</div>
+            </div>
+            <div class="ticket-tier" data-price-mult="1.6">
+              <div class="tier-info">
+                <strong>Priority / VIP Access</strong>
+                <span>Fast-track entry + lounge access</span>
+              </div>
+              <div class="tier-price" id="tierPriceVip">£72</div>
+            </div>
+          </div>
+
+          <div class="quantity-selector">
+            <span class="field-label">Number of Tickets</span>
+            <div class="qty-stepper">
+              <button type="button" class="qty-btn" id="qtyMinus" aria-label="Decrease quantity">−</button>
+              <span class="qty-val" id="qtyVal">1</span>
+              <button type="button" class="qty-btn" id="qtyPlus" aria-label="Increase quantity">+</button>
+            </div>
+          </div>
+
+          <div class="order-summary">
+            <div class="summary-row">
+              <span>Subtotal</span>
+              <span id="summarySubtotal">£45</span>
+            </div>
+            <div class="summary-row">
+              <span>Service Fee</span>
+              <span>£2.50</span>
+            </div>
+            <div class="summary-row summary-total">
+              <strong>Total</strong>
+              <strong id="summaryTotal">£47.50</strong>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-block" id="btnConfirmBooking">
+            Proceed to Checkout
+          </button>
+          <p class="booking-guarantee">🔒 100% Buyer Guarantee • Instant Delivery to Email</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Modal (Log in / Sign up) -->
+  <div class="modal-backdrop" id="authModalBackdrop">
+    <div class="modal-dialog auth-dialog" role="dialog" aria-modal="true">
+      <button type="button" class="modal-close-btn" id="closeAuthModal" aria-label="Close dialog">✕</button>
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab-btn active" id="tabLogIn">Log in</button>
+        <button type="button" class="auth-tab-btn" id="tabSignUp">Sign up</button>
+      </div>
+
+      <form class="auth-form" id="authForm" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="authEmail" class="form-label">Email address</label>
+          <input type="email" id="authEmail" class="form-input" placeholder="name@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="authPassword" class="form-label">Password</label>
+          <input type="password" id="authPassword" class="form-input" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="authSubmitBtn">Log in to TicketRush</button>
+        <p class="auth-footer-text" id="authFooterText">
+          Don't have an account? <a href="#" id="switchAuthLink">Sign up free</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notification" id="toastNotification">
+    <div class="toast-icon">✓</div>
+    <div class="toast-message" id="toastMessage">Success notification message</div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,624 @@
+/**
+ * TicketRush — Interactive Event Application
+ * Vanilla JavaScript (ES6+)
+ */
+
+// Event Dataset (London events matching screenshot and extensions)
+const EVENTS_DATA = [
+  {
+    id: 'evt-1',
+    month: 'NOV',
+    day: '06',
+    weekday: 'FRI',
+    title: 'Jungle',
+    price: 45,
+    currency: '£',
+    venue: 'Alexandra Palace, London',
+    category: 'Music / Soul',
+    image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
+    dateRank: 1
+  },
+  {
+    id: 'evt-2',
+    month: 'NOV',
+    day: '07',
+    weekday: 'SAT',
+    title: 'Arsenal vs. Newcastle United',
+    price: 85,
+    currency: '£',
+    venue: 'Emirates Stadium, London',
+    category: 'Premier League',
+    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80',
+    dateRank: 2
+  },
+  {
+    id: 'evt-3',
+    month: 'NOV',
+    day: '08',
+    weekday: 'SUN',
+    title: 'The Sunday Comedy Club',
+    price: 22,
+    currency: '£',
+    venue: 'Soho Theatre, London',
+    category: 'Stand-up Comedy',
+    image: 'https://images.unsplash.com/photo-1585699324551-f6c309eedeca?auto=format&fit=crop&w=800&q=80',
+    dateRank: 3
+  },
+  {
+    id: 'evt-4',
+    month: 'NOV',
+    day: '11',
+    weekday: 'WED',
+    title: 'The Royal Ballet: The Nutcracker',
+    price: 38,
+    currency: '£',
+    venue: 'Royal Opera House, Covent Garden',
+    category: 'Ballet / Dance',
+    image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&w=800&q=80',
+    dateRank: 4
+  },
+  {
+    id: 'evt-5',
+    month: 'NOV',
+    day: '13',
+    weekday: 'FRI',
+    title: 'Bicep presents CHROMA',
+    price: 49,
+    currency: '£',
+    venue: 'Drumsheds, London',
+    category: 'Electronic / Live AV',
+    image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=800&q=80',
+    dateRank: 5
+  },
+  {
+    id: 'evt-6',
+    month: 'NOV',
+    day: '14',
+    weekday: 'SAT',
+    title: 'Late Night Jazz Sessions',
+    price: 32,
+    currency: '£',
+    venue: "Ronnie Scott's, Soho",
+    category: 'Jazz & Soul',
+    image: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=800&q=80',
+    dateRank: 6
+  },
+  // Additional events for realistic pagination
+  {
+    id: 'evt-7',
+    month: 'NOV',
+    day: '18',
+    weekday: 'WED',
+    title: 'London Symphony Orchestra: Beethoven No. 9',
+    price: 35,
+    currency: '£',
+    venue: 'Barbican Centre, London',
+    category: 'Classical',
+    image: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=800&q=80',
+    dateRank: 7
+  },
+  {
+    id: 'evt-8',
+    month: 'NOV',
+    day: '20',
+    weekday: 'FRI',
+    title: 'Four Tet & Floating Points All Night Long',
+    price: 42,
+    currency: '£',
+    venue: 'Brixton Academy, London',
+    category: 'Electronic',
+    image: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=800&q=80',
+    dateRank: 8
+  },
+  {
+    id: 'evt-9',
+    month: 'NOV',
+    day: '22',
+    weekday: 'SUN',
+    title: 'Chelsea vs. Manchester City',
+    price: 95,
+    currency: '£',
+    venue: 'Stamford Bridge, London',
+    category: 'Premier League',
+    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
+    dateRank: 9
+  },
+  {
+    id: 'evt-10',
+    month: 'NOV',
+    day: '25',
+    weekday: 'WED',
+    title: 'Hamilton — West End Gala',
+    price: 65,
+    currency: '£',
+    venue: 'Victoria Palace Theatre, London',
+    category: 'Musical Theatre',
+    image: 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=800&q=80',
+    dateRank: 10
+  },
+  {
+    id: 'evt-11',
+    month: 'NOV',
+    day: '27',
+    weekday: 'FRI',
+    title: 'Candlelight: Best of Hans Zimmer',
+    price: 28,
+    currency: '£',
+    venue: 'Southwark Cathedral, London',
+    category: 'Live Strings',
+    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
+    dateRank: 11
+  },
+  {
+    id: 'evt-12',
+    month: 'NOV',
+    day: '29',
+    weekday: 'SUN',
+    title: 'London Indie Film Fest Gala Screening',
+    price: 18,
+    currency: '£',
+    venue: 'BFI Southbank, London',
+    category: 'Cinema & Arts',
+    image: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=800&q=80',
+    dateRank: 12
+  }
+];
+
+// App State
+const state = {
+  searchQuery: '',
+  sortOrder: 'soonest', // 'soonest', 'price-low', 'price-high', 'name'
+  currentPage: 1,
+  pageSize: 6,
+  totalEventsCount: 48, // Visual match for the 48 total in London
+  selectedEvent: null,
+  ticketTierMultiplier: 1,
+  ticketQuantity: 1,
+  bookingFee: 2.50
+};
+
+// DOM Elements
+const elements = {
+  eventsGrid: document.getElementById('eventsGrid'),
+  emptyState: document.getElementById('emptyState'),
+  searchInput: document.getElementById('searchInput'),
+  searchClearBtn: document.getElementById('searchClearBtn'),
+  shortcutBadge: document.getElementById('shortcutBadge'),
+  resetSearchBtn: document.getElementById('resetSearchBtn'),
+  sortDropdown: document.getElementById('sortDropdown'),
+  sortDropdownTrigger: document.getElementById('sortDropdownTrigger'),
+  sortDropdownMenu: document.getElementById('sortDropdownMenu'),
+  currentSortText: document.getElementById('currentSortText'),
+  eventsCountBadge: document.getElementById('eventsCountBadge'),
+  resultsSummary: document.getElementById('resultsSummary'),
+  prevPageBtn: document.getElementById('prevPageBtn'),
+  nextPageBtn: document.getElementById('nextPageBtn'),
+  pageNumbers: document.getElementById('pageNumbers'),
+  
+  // Modals
+  bookingModalBackdrop: document.getElementById('bookingModalBackdrop'),
+  closeBookingModal: document.getElementById('closeBookingModal'),
+  bookingImg: document.getElementById('bookingImg'),
+  bookingDate: document.getElementById('bookingDate'),
+  bookingEventTitle: document.getElementById('bookingEventTitle'),
+  bookingVenue: document.getElementById('bookingVenue'),
+  tierPrice: document.getElementById('tierPrice'),
+  tierPriceVip: document.getElementById('tierPriceVip'),
+  qtyMinus: document.getElementById('qtyMinus'),
+  qtyPlus: document.getElementById('qtyPlus'),
+  qtyVal: document.getElementById('qtyVal'),
+  summarySubtotal: document.getElementById('summarySubtotal'),
+  summaryTotal: document.getElementById('summaryTotal'),
+  btnConfirmBooking: document.getElementById('btnConfirmBooking'),
+  
+  // Auth
+  authModalBackdrop: document.getElementById('authModalBackdrop'),
+  closeAuthModal: document.getElementById('closeAuthModal'),
+  btnLogIn: document.getElementById('btnLogIn'),
+  btnSignUp: document.getElementById('btnSignUp'),
+  tabLogIn: document.getElementById('tabLogIn'),
+  tabSignUp: document.getElementById('tabSignUp'),
+  authSubmitBtn: document.getElementById('authSubmitBtn'),
+  authFooterText: document.getElementById('authFooterText'),
+  authForm: document.getElementById('authForm'),
+  
+  // Toast
+  toastNotification: document.getElementById('toastNotification'),
+  toastMessage: document.getElementById('toastMessage')
+};
+
+// Initialize Application
+function init() {
+  bindEvents();
+  render();
+}
+
+// Event Bindings
+function bindEvents() {
+  // Search
+  elements.searchInput.addEventListener('input', handleSearchInput);
+  elements.searchClearBtn.addEventListener('click', handleSearchClear);
+  elements.resetSearchBtn.addEventListener('click', handleSearchClear);
+
+  // Global Keyboard Shortcuts (⌘K / Ctrl+K, Escape)
+  window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      elements.searchInput.focus();
+    } else if (e.key === 'Escape') {
+      closeAllModals();
+      closeDropdown();
+      if (document.activeElement === elements.searchInput) {
+        elements.searchInput.blur();
+      }
+    }
+  });
+
+  // Sort Dropdown
+  elements.sortDropdownTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    elements.sortDropdown.classList.toggle('open');
+  });
+
+  elements.sortDropdownMenu.querySelectorAll('.dropdown-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const sortType = item.getAttribute('data-sort');
+      setSortOrder(sortType, item.textContent.trim());
+    });
+  });
+
+  document.addEventListener('click', () => {
+    closeDropdown();
+  });
+
+  // Pagination
+  elements.prevPageBtn.addEventListener('click', () => {
+    if (state.currentPage > 1) {
+      setPage(state.currentPage - 1);
+    }
+  });
+
+  elements.nextPageBtn.addEventListener('click', () => {
+    const totalPages = Math.ceil(getFilteredEvents().length / state.pageSize) || 1;
+    if (state.currentPage < totalPages) {
+      setPage(state.currentPage + 1);
+    }
+  });
+
+  // Booking Modal
+  elements.closeBookingModal.addEventListener('click', closeAllModals);
+  elements.bookingModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === elements.bookingModalBackdrop) closeAllModals();
+  });
+
+  document.querySelectorAll('.ticket-tier').forEach(tier => {
+    tier.addEventListener('click', () => {
+      document.querySelectorAll('.ticket-tier').forEach(t => t.classList.remove('active'));
+      tier.classList.add('active');
+      state.ticketTierMultiplier = parseFloat(tier.getAttribute('data-price-mult') || 1);
+      updateBookingTotals();
+    });
+  });
+
+  elements.qtyMinus.addEventListener('click', () => {
+    if (state.ticketQuantity > 1) {
+      state.ticketQuantity--;
+      elements.qtyVal.textContent = state.ticketQuantity;
+      updateBookingTotals();
+    }
+  });
+
+  elements.qtyPlus.addEventListener('click', () => {
+    if (state.ticketQuantity < 10) {
+      state.ticketQuantity++;
+      elements.qtyVal.textContent = state.ticketQuantity;
+      updateBookingTotals();
+    }
+  });
+
+  elements.btnConfirmBooking.addEventListener('click', () => {
+    closeAllModals();
+    showToast(`Order confirmed! ${state.ticketQuantity}x tickets sent to your email.`);
+  });
+
+  // Auth Modals
+  elements.btnLogIn.addEventListener('click', () => openAuthModal('login'));
+  elements.btnSignUp.addEventListener('click', () => openAuthModal('signup'));
+  elements.closeAuthModal.addEventListener('click', closeAllModals);
+  elements.authModalBackdrop.addEventListener('click', (e) => {
+    if (e.target === elements.authModalBackdrop) closeAllModals();
+  });
+
+  elements.tabLogIn.addEventListener('click', () => setAuthTab('login'));
+  elements.tabSignUp.addEventListener('click', () => setAuthTab('signup'));
+  elements.authForm.addEventListener('submit', handleAuthSubmit);
+}
+
+// Dropdown Helper
+function closeDropdown() {
+  elements.sortDropdown.classList.remove('open');
+}
+
+// Search Handler
+function handleSearchInput(e) {
+  state.searchQuery = e.target.value.trim().toLowerCase();
+  state.currentPage = 1;
+  
+  if (state.searchQuery.length > 0) {
+    elements.searchClearBtn.style.display = 'block';
+    elements.shortcutBadge.style.opacity = '0';
+  } else {
+    elements.searchClearBtn.style.display = 'none';
+    elements.shortcutBadge.style.opacity = '1';
+  }
+  
+  render();
+}
+
+function handleSearchClear() {
+  elements.searchInput.value = '';
+  state.searchQuery = '';
+  state.currentPage = 1;
+  elements.searchClearBtn.style.display = 'none';
+  elements.shortcutBadge.style.opacity = '1';
+  elements.searchInput.focus();
+  render();
+}
+
+// Sort Handler
+function setSortOrder(sortKey, sortLabel) {
+  state.sortOrder = sortKey;
+  elements.currentSortText.textContent = sortLabel;
+  
+  elements.sortDropdownMenu.querySelectorAll('.dropdown-item').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-sort') === sortKey);
+  });
+  
+  closeDropdown();
+  render();
+}
+
+// Filter and Sort Data Pipeline
+function getFilteredEvents() {
+  let list = [...EVENTS_DATA];
+
+  // Filter by query
+  if (state.searchQuery) {
+    list = list.filter(evt => 
+      evt.title.toLowerCase().includes(state.searchQuery) ||
+      evt.venue.toLowerCase().includes(state.searchQuery) ||
+      evt.category.toLowerCase().includes(state.searchQuery)
+    );
+  }
+
+  // Sort
+  if (state.sortOrder === 'soonest') {
+    list.sort((a, b) => a.dateRank - b.dateRank);
+  } else if (state.sortOrder === 'price-low') {
+    list.sort((a, b) => a.price - b.price);
+  } else if (state.sortOrder === 'price-high') {
+    list.sort((a, b) => b.price - a.price);
+  } else if (state.sortOrder === 'name') {
+    list.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
+  return list;
+}
+
+// Set active page
+function setPage(pageNum) {
+  state.currentPage = pageNum;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Render DOM
+function render() {
+  const filtered = getFilteredEvents();
+  const totalFiltered = filtered.length;
+
+  // Header Counter Badge
+  elements.eventsCountBadge.textContent = state.searchQuery ? totalFiltered : state.totalEventsCount;
+
+  // Empty state handling
+  if (totalFiltered === 0) {
+    elements.eventsGrid.innerHTML = '';
+    elements.emptyState.style.display = 'block';
+    elements.resultsSummary.textContent = 'Showing 0 events';
+    updatePaginationUI(0, 0);
+    return;
+  }
+
+  elements.emptyState.style.display = 'none';
+
+  // Pagination slice
+  const startIndex = (state.currentPage - 1) * state.pageSize;
+  const pageItems = filtered.slice(startIndex, startIndex + state.pageSize);
+
+  // Render Cards
+  elements.eventsGrid.innerHTML = pageItems.map(evt => createEventCardHTML(evt)).join('');
+
+  // Re-attach book button listeners
+  elements.eventsGrid.querySelectorAll('.btn-book').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const eventId = e.currentTarget.getAttribute('data-id');
+      const eventData = EVENTS_DATA.find(item => item.id === eventId);
+      if (eventData) {
+        openBookingModal(eventData);
+      }
+    });
+  });
+
+  // Update Result text
+  const startNum = startIndex + 1;
+  const endNum = Math.min(startIndex + pageItems.length, totalFiltered);
+  const totalLondonCount = state.searchQuery ? totalFiltered : state.totalEventsCount;
+  elements.resultsSummary.textContent = `Showing ${startNum}–${endNum} of ${totalLondonCount} events in London`;
+
+  // Update Pagination Controls
+  const totalPages = Math.ceil(totalFiltered / state.pageSize) || 1;
+  updatePaginationUI(state.currentPage, totalPages);
+}
+
+// Generate Event Card HTML (Pixel-perfect match to screenshot)
+function createEventCardHTML(evt) {
+  return `
+    <article class="event-card" data-id="${evt.id}">
+      <div class="card-image-wrap">
+        <img 
+          src="${evt.image}" 
+          alt="${evt.title}" 
+          class="card-image"
+          loading="lazy"
+        />
+      </div>
+
+      <div class="card-body">
+        <div class="event-date-block">
+          <span class="date-month">${evt.month}</span>
+          <span class="date-day">${evt.day}</span>
+          <span class="date-weekday">${evt.weekday}</span>
+        </div>
+
+        <h3 class="event-title">${evt.title}</h3>
+
+        <div class="card-footer">
+          <div class="price-block">
+            <span class="price-label">From</span>
+            <span class="price-amount">${evt.currency}${evt.price}</span>
+          </div>
+
+          <button type="button" class="btn-book" data-id="${evt.id}" aria-label="Book tickets for ${evt.title}">
+            <span>Book tickets</span>
+            <svg class="arrow-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="7" y1="17" x2="17" y2="7"></line>
+              <polyline points="7 7 17 7 17 17"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+// Update Pagination Numbers
+function updatePaginationUI(currentPage, totalPages) {
+  elements.prevPageBtn.disabled = currentPage <= 1;
+  elements.nextPageBtn.disabled = currentPage >= totalPages;
+
+  // Build page buttons matching `< 1 2 3 … 8 >`
+  let html = '';
+  if (totalPages <= 4) {
+    for (let p = 1; p <= totalPages; p++) {
+      html += `<button type="button" class="page-btn ${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+    }
+  } else {
+    // Exact screenshot styling: 1, 2, 3, …, 8
+    html += `<button type="button" class="page-btn ${1 === currentPage ? 'active' : ''}" data-page="1">1</button>`;
+    html += `<button type="button" class="page-btn ${2 === currentPage ? 'active' : ''}" data-page="2">2</button>`;
+    html += `<button type="button" class="page-btn ${3 === currentPage ? 'active' : ''}" data-page="3">3</button>`;
+    html += `<span class="page-ellipsis">…</span>`;
+    html += `<button type="button" class="page-btn ${8 === currentPage ? 'active' : ''}" data-page="8">8</button>`;
+  }
+
+  elements.pageNumbers.innerHTML = html;
+
+  elements.pageNumbers.querySelectorAll('.page-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const page = parseInt(btn.getAttribute('data-page'), 10);
+      setPage(page);
+    });
+  });
+}
+
+// Open Booking Modal
+function openBookingModal(eventData) {
+  state.selectedEvent = eventData;
+  state.ticketQuantity = 1;
+  state.ticketTierMultiplier = 1;
+  elements.qtyVal.textContent = '1';
+
+  // Reset active tier
+  const tiers = elements.bookingModalBackdrop.querySelectorAll('.ticket-tier');
+  tiers.forEach((t, i) => t.classList.toggle('active', i === 0));
+
+  elements.bookingImg.src = eventData.image;
+  elements.bookingDate.textContent = `${eventData.month} ${eventData.day} • ${eventData.weekday}`;
+  elements.bookingEventTitle.textContent = eventData.title;
+  elements.bookingVenue.textContent = eventData.venue;
+
+  // Prices
+  elements.tierPrice.textContent = `${eventData.currency}${eventData.price}`;
+  elements.tierPriceVip.textContent = `${eventData.currency}${Math.round(eventData.price * 1.6)}`;
+
+  updateBookingTotals();
+  elements.bookingModalBackdrop.classList.add('active');
+}
+
+// Update calculated order totals
+function updateBookingTotals() {
+  if (!state.selectedEvent) return;
+
+  const basePrice = state.selectedEvent.price;
+  const unitPrice = Math.round(basePrice * state.ticketTierMultiplier);
+  const subtotal = unitPrice * state.ticketQuantity;
+  const total = subtotal + state.bookingFee;
+
+  elements.summarySubtotal.textContent = `${state.selectedEvent.currency}${subtotal.toFixed(2)}`;
+  elements.summaryTotal.textContent = `${state.selectedEvent.currency}${total.toFixed(2)}`;
+}
+
+// Auth Modal
+function openAuthModal(mode) {
+  setAuthTab(mode);
+  elements.authModalBackdrop.classList.add('active');
+}
+
+function setAuthTab(mode) {
+  if (mode === 'login') {
+    elements.tabLogIn.classList.add('active');
+    elements.tabSignUp.classList.remove('active');
+    elements.authSubmitBtn.textContent = 'Log in to TicketRush';
+    elements.authFooterText.innerHTML = `Don't have an account? <a href="#" id="switchAuthLink">Sign up free</a>`;
+  } else {
+    elements.tabSignUp.classList.add('active');
+    elements.tabLogIn.classList.remove('active');
+    elements.authSubmitBtn.textContent = 'Create free account';
+    elements.authFooterText.innerHTML = `Already have an account? <a href="#" id="switchAuthLink">Log in</a>`;
+  }
+
+  const switchLink = document.getElementById('switchAuthLink');
+  if (switchLink) {
+    switchLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      setAuthTab(mode === 'login' ? 'signup' : 'login');
+    });
+  }
+}
+
+function handleAuthSubmit() {
+  const isLogIn = elements.tabLogIn.classList.contains('active');
+  closeAllModals();
+  showToast(isLogIn ? 'Welcome back! Signed in successfully.' : 'Welcome to TicketRush! Account created.');
+}
+
+// Modal Dismiss
+function closeAllModals() {
+  elements.bookingModalBackdrop.classList.remove('active');
+  elements.authModalBackdrop.classList.remove('active');
+}
+
+// Toast System
+let toastTimer = null;
+function showToast(message) {
+  elements.toastMessage.textContent = message;
+  elements.toastNotification.classList.add('active');
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    elements.toastNotification.classList.remove('active');
+  }, 3500);
+}
+
+// Start
+document.addEventListener('DOMContentLoaded', init);
