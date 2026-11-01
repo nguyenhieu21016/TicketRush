@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Event
-from app.schemas import EventListResponse
+from app.schemas import EventListResponse, EventResponse
+
 router = APIRouter(
     prefix= "/api/events",
     tags=["Events"]
@@ -17,13 +18,14 @@ def get_events(db: Session = Depends(get_db)):
         "total": len(events)
     }
 
-@router.get("/{event_id}")
-def get_event(event_id: int):
-    return {
-        "event_id": event_id,
-        "name": "Event Name",
-        "description": "Event Description",
-        "date": "2022-01-01",
-        "time": "12:00",
-        "price": 100
-    }
+@router.get("/{event_id}", response_model=EventResponse)
+def get_event(event_id: int, db: Session = Depends(get_db)):
+    event = db.query(Event).filter(Event.id == event_id).first()
+
+    if event is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Event not found"
+        )
+
+    return event
