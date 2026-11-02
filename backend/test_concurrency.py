@@ -6,10 +6,11 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 API_URL = "http://127.0.0.1:8000/api/bookings/"
-EVENT_ID = 7
+EVENT_ID = 9
+TOTAL_USERS = 20
+QUANTITY_PER_USER = 3
 
-# Ensure both requests start at nearly the same time
-barrier = Barrier(2)
+barrier = Barrier(TOTAL_USERS)
 
 
 def send_booking(user_number):
@@ -17,7 +18,7 @@ def send_booking(user_number):
         "event_id": EVENT_ID,
         "buyer_name": f"Test User {user_number}",
         "buyer_email": f"test{user_number}@example.com",
-        "quantity": 3
+        "quantity": QUANTITY_PER_USER
     }
 
     request = Request(
@@ -28,49 +29,52 @@ def send_booking(user_number):
     )
 
     try:
-        barrier.wait(timeout=10)
+        barrier.wait(timeout=15)
 
-        with urlopen(request, timeout=15) as response:
-            body = json.loads(response.read().decode("utf-8"))
-
+        with urlopen(request, timeout=30) as response:
             return {
                 "user": user_number,
-                "status": response.status,
-                "body": body
+                "status": response.status
             }
 
     except HTTPError as error:
-        body = json.loads(error.read().decode("utf-8"))
-
         return {
             "user": user_number,
             "status": error.code,
-            "body": body
+            "error": error.read().decode("utf-8")
         }
 
     except Exception as error:
         return {
             "user": user_number,
             "status": None,
-            "body": str(error)
+            "error": str(error)
         }
 
 
 if __name__ == "__main__":
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        results = list(executor.map(send_booking, [1, 2]))
+    with ThreadPoolExecutor(max_workers=TOTAL_USERS) as executor:
+        results = list(
+            executor.map(send_booking, range(1, TOTAL_USERS + 1))
+        )
 
     for result in results:
-        print(f"\nUser {result['user']}")
-        print(f"HTTP Status: {result['status']}")
-        print(f"Response: {result['body']}")
+        print(
+            f"User {result['user']:02d}: "
+            f"HTTP {result['status']}"
+        )
 
-    success_count = sum(r["status"] == 201 for r in results)
-    conflict_count = sum(r["status"] == 409 for r in results)
+    success = sum(r["status"] == 201 for r in results)
+    conflict = sum(r["status"] == 409 for r in results)
+    unexpected = TOTAL_USERS - success - conflict
 
-    print("\n========== TEST RESULT ==========")
+    print("\n========== TEST SUMMARY ==========")
+    print(f"Total requests: {TOTAL_USERS}")
+    print(f"Successful:     {success}")
+    print(f"Conflicts:      {conflict}")
+    print(f"Unexpected:     {unexpected}")
 
-    if success_count == 1 and conflict_count == 1:
+    if success == 8 and conflict == 12 and unexpected == 0:
         print("PASS: No overselling detected!")
     else:
-        print("FAIL: Unexpected booking results.")
+        print("FAIL: Unexpected result. Check the database and API logs.")
