@@ -72,6 +72,8 @@ const state = {
   // bookingFee: 2.50
 };
 
+let pendingBookingAttempt = null;
+
 // DOM Elements
 const elements = {
   eventsGrid: document.getElementById('eventsGrid'),
@@ -239,6 +241,17 @@ function bindEvents() {
         buyer_email: email,
         quantity: state.ticketQuantity
       };
+      const requestBody = JSON.stringify(bookingData);
+
+      if (
+        pendingBookingAttempt === null ||
+        pendingBookingAttempt.requestBody !== requestBody
+      ) {
+        pendingBookingAttempt = {
+          key: crypto.randomUUID(),
+          requestBody
+        };
+      }
 
       // 3. Send request to Backend
       const response = await fetch(
@@ -246,9 +259,10 @@ function bindEvents() {
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Idempotency-Key': pendingBookingAttempt.key
           },
-          body: JSON.stringify(bookingData)
+          body: pendingBookingAttempt.requestBody
         }
       );
 
@@ -265,6 +279,7 @@ function bindEvents() {
 
       // 5. Booking successful
       console.log('Booking response:', result);
+      pendingBookingAttempt = null;
 
       closeAllModals();
 

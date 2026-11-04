@@ -15,9 +15,10 @@ app.add_middleware(
         "http://127.0.0.1:5500",
         "http://0.0.0.0:5500"
     ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Idempotency-Key"],
 )
 
 app.include_router(events_router)

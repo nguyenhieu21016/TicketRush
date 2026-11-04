@@ -119,7 +119,10 @@ docker compose up -d
 
 ### Bước 4: Khởi chạy Frontend
 
-Backend đã được cấu hình CORS cho phép các kết nối từ `http://localhost:5500` và `http://127.0.0.1:5500`.
+Backend cho phép frontend local trên `localhost`, `127.0.0.1` hoặc `0.0.0.0`
+(HTTP/HTTPS, mọi cổng) và chỉ mở các header cần dùng cho request đặt vé.
+Hãy mở frontend qua Live Server hoặc HTTP server; không mở trực tiếp bằng
+`file://`, vì trình duyệt dùng origin `null` và origin này không được cho phép.
 
 Bạn có thể chạy Frontend bằng một trong hai cách:
 
@@ -148,6 +151,24 @@ FastAPI hỗ trợ tài liệu API tương tác tự động. Khi backend đang 
 ### Các API chính hiện tại:
 - `GET /api/events/`: Lấy danh sách sự kiện sắp diễn ra kèm tổng số lượng.
 - `GET /api/events/{event_id}`: Lấy chi tiết thông tin sự kiện theo ID.
+- `POST /api/bookings/`: Tạo booking; bắt buộc gửi header `Idempotency-Key`.
+
+#### Idempotency khi đặt vé
+
+Mỗi lần bắt đầu một thao tác đặt vé mới, client gửi một khóa duy nhất trong
+header `Idempotency-Key` (1–255 ký tự). Khi retry cùng thao tác, client phải
+dùng lại khóa và nội dung request ban đầu. Hệ thống trả lại snapshot response
+đã ghi nhận nếu nội dung giống nhau, và trả `409 Conflict` nếu khóa được dùng
+cho nội dung khác. Khóa được băm trước khi lưu; bản ghi và snapshot response
+được giữ cùng booking, không tự hết hạn, để retry muộn không tạo booking/vé mới.
+Database hiện có cần chạy migration
+[003_create_idempotency_records.sql](./database/migrations/003_create_idempotency_records.sql)
+trước khi triển khai backend mới.
+
+Hiện dự án chưa tích hợp payment gateway hoặc có luồng tạo giao dịch thanh toán.
+Idempotency của endpoint này bảo vệ booking và vé trong database; khi tích hợp
+payment, cần truyền cùng khóa nghiệp vụ tới provider và lưu/đối soát mã giao
+dịch provider riêng để bảo vệ các retry phía thanh toán.
 
 ---
 
@@ -176,4 +197,3 @@ docker compose up -d
 - Đảm bảo Backend đang chạy tại `http://localhost:8000`.
 - Kiểm tra xem Frontend có đang được mở đúng cổng `5500` (được cấu hình trong [backend/app/main.py](file:///home/gotever/Projects/TicketRush/backend/app/main.py)) hay không.
 - Mở DevTools (`F12`) trên trình duyệt và kiểm tra tab **Console** và **Network**.
-

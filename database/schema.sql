@@ -7,6 +7,7 @@ USE ticketrush_db;
 
 /* Delete these lines before pushing to rds */
 DROP TABLE IF EXISTS tickets;
+DROP TABLE IF EXISTS idempotency_records;
 DROP TABLE IF EXISTS bookings;
 DROP TABLE IF EXISTS events;
 
@@ -69,6 +70,20 @@ CREATE TABLE bookings (
   INDEX idx_bookings_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE idempotency_records (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  key_hash CHAR(64) NOT NULL UNIQUE,
+  request_hash CHAR(64) NOT NULL,
+  booking_id INT NOT NULL UNIQUE,
+  response_body JSON NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_idempotency_booking
+    FOREIGN KEY (booking_id) REFERENCES bookings(id)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE tickets (
   id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Mã vé (Khóa chính)',
   ticket_code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Mã vé duy nhất (được mã hóa vào QR Code)',
@@ -116,4 +131,3 @@ INSERT INTO events (
 (6, 'Late Night Jazz Sessions', 'Jazz & Soul', "Ronnie Scott's, Soho",
  'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=800&q=80',
  300, 300, 32.00, '2026-11-14 22:30:00');
-

@@ -1,6 +1,7 @@
 
 from sqlalchemy import (
     Column,
+    JSON,
     Integer,
     String,
     Text,
@@ -115,6 +116,26 @@ class Ticket(Base):
 
     qr_code_url = Column(String(500), nullable=True)
 
+    created_at = Column(
+        TIMESTAMP,
+        nullable=False,
+        server_default=func.current_timestamp()
+    )
+
+
+class IdempotencyRecord(Base):
+    __tablename__ = "idempotency_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key_hash = Column(String(64), nullable=False, unique=True)
+    request_hash = Column(String(64), nullable=False)
+    booking_id = Column(
+        Integer,
+        ForeignKey("bookings.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True
+    )
+    response_body = Column(JSON, nullable=False)
     created_at = Column(
         TIMESTAMP,
         nullable=False,

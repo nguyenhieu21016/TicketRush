@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from uuid import uuid4
 
 API_URL = "http://127.0.0.1:8000/api/bookings/"
 EVENT_ID = 9
@@ -24,7 +25,10 @@ def send_booking(user_number):
     request = Request(
         API_URL,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Idempotency-Key": str(uuid4())
+        },
         method="POST"
     )
 
