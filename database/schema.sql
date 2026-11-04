@@ -86,6 +86,26 @@ CREATE TABLE tickets (
   INDEX idx_tickets_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE users (
+  id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Mã user (Khóa chính)',
+  email VARCHAR(255) NOT NULL UNIQUE COMMENT 'Email đăng nhập duy nhất',
+  password_hash VARCHAR(255) NOT NULL COMMENT 'Mật khẩu đã mã hóa',
+  full_name VARCHAR(100) NOT NULL COMMENT 'Họ và tên người dùng',
+  role ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER' COMMENT 'Vai trò tài khoản',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm tạo tài khoản',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_users_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE bookings 
+ADD COLUMN user_id INT NULL AFTER booking_code,
+ADD CONSTRAINT fk_bookings_user
+  FOREIGN KEY (user_id) REFERENCES users(id)
+  ON DELETE SET NULL
+  ON UPDATE CASCADE,
+ADD INDEX idx_bookings_user (user_id);
+
+
 -- Dữ liệu tét
 
 INSERT INTO events (
