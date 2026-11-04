@@ -70,6 +70,8 @@ const state = {
   // ticketTierMultiplier: 1,
   ticketQuantity: 1,
   // bookingFee: 2.50
+  currentUser: JSON.parse(localStorage.getItem('currentUser') || 'null'),
+  authToken: localStorage.getItem('authToken') || null
 };
 
 // DOM Elements
@@ -103,11 +105,14 @@ const elements = {
   qtyVal: document.getElementById('qtyVal'),
   summarySubtotal: document.getElementById('summarySubtotal'),
   summaryTotal: document.getElementById('summaryTotal'),
-  bookingName: document.getElementById('bookingName'),
-  bookingEmail: document.getElementById('bookingEmail'),
+  bookingCustomerInfo: document.getElementById('bookingCustomerInfo'),
+  bookingUserAvatar: document.getElementById('bookingUserAvatar'),
+  bookingUserName: document.getElementById('bookingUserName'),
+  bookingUserEmail: document.getElementById('bookingUserEmail'),
   btnConfirmBooking: document.getElementById('btnConfirmBooking'),
 
   // Auth
+  authActions: document.getElementById('authActions'),
   authModalBackdrop: document.getElementById('authModalBackdrop'),
   closeAuthModal: document.getElementById('closeAuthModal'),
   btnLogIn: document.getElementById('btnLogIn'),
@@ -117,6 +122,10 @@ const elements = {
   authSubmitBtn: document.getElementById('authSubmitBtn'),
   authFooterText: document.getElementById('authFooterText'),
   authForm: document.getElementById('authForm'),
+  fullNameGroup: document.getElementById('fullNameGroup'),
+  authFullName: document.getElementById('authFullName'),
+  authEmail: document.getElementById('authEmail'),
+  authPassword: document.getElementById('authPassword'),
 
   // Toast
   toastNotification: document.getElementById('toastNotification'),
@@ -126,6 +135,7 @@ const elements = {
 // Initialize Application
 function init() {
   bindEvents();
+  renderAuthUI();
   render(); // vẽ ban đầu (rỗng)
   fetchEventsFromAPI(); // gọi API lấy dữ liệu thật
 }
@@ -211,12 +221,11 @@ function bindEvents() {
 
 
   elements.btnConfirmBooking.addEventListener('click', async () => {
-    const name = elements.bookingName.value.trim();
-    const email = elements.bookingEmail.value.trim();
-
-    // 1. Validate input
-    if (!name || !email) {
-      showToast('Please enter your name and email.');
+    // 1. Kiểm tra đăng nhập
+    if (!state.currentUser || !state.authToken) {
+      closeAllModals();
+      openAuthModal('login');
+      showToast('Please log in to book tickets.');
       return;
     }
 
@@ -232,21 +241,22 @@ function bindEvents() {
     button.textContent = 'Processing...';
 
     try {
-      // 2. Prepare booking request
+      // 2. Prepare booking request (Lấy thẳng tên và email từ tài khoản đang đăng nhập)
       const bookingData = {
         event_id: state.selectedEvent.id,
-        buyer_name: name,
-        buyer_email: email,
+        buyer_name: state.currentUser.full_name,
+        buyer_email: state.currentUser.email,
         quantity: state.ticketQuantity
       };
 
-      // 3. Send request to Backend
+      // 3. Send request to Backend kèm Bearer Token
       const response = await fetch(
         'http://localhost:8000/api/bookings/',
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.authToken}`
           },
           body: JSON.stringify(bookingData)
         }
@@ -272,10 +282,6 @@ function bindEvents() {
         `Booking confirmed! Code: ${result.booking_code}`
       );
 
-      // Clear customer inputs
-      elements.bookingName.value = '';
-      elements.bookingEmail.value = '';
-
       // Refresh events from Backend
       await fetchEventsFromAPI();
 
@@ -290,8 +296,6 @@ function bindEvents() {
 
 
   // Auth Modals
-  elements.btnLogIn.addEventListener('click', () => openAuthModal('login'));
-  elements.btnSignUp.addEventListener('click', () => openAuthModal('signup'));
   elements.closeAuthModal.addEventListener('click', closeAllModals);
   elements.authModalBackdrop.addEventListener('click', (e) => {
     if (e.target === elements.authModalBackdrop) closeAllModals();
@@ -505,6 +509,13 @@ function updatePaginationUI(currentPage, totalPages) {
 
 // Open Booking Modal
 function openBookingModal(eventData) {
+  // 1. Kiểm tra đăng nhập trước khi cho mở modal đặt vé
+  if (!state.currentUser || !state.authToken) {
+    openAuthModal('login');
+    showToast('Please log in or sign up to book tickets.');
+    return;
+  }
+
   // Check stock first
   if (eventData.availableTickets <= 0) {
     showToast('Sorry, this event is sold out.');
@@ -525,6 +536,17 @@ function openBookingModal(eventData) {
 
   elements.bookingStockInfo.textContent =
     `${eventData.availableTickets} tickets available`;
+
+  // Cập nhật thông tin người đặt vé từ tài khoản đã đăng nhập
+  if (elements.bookingUserName) {
+    elements.bookingUserName.textContent = state.currentUser.full_name;
+  }
+  if (elements.bookingUserEmail) {
+    elements.bookingUserEmail.textContent = state.currentUser.email;
+  }
+  if (elements.bookingUserAvatar) {
+    elements.bookingUserAvatar.textContent = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
+  }
 
   updateBookingTotals();
 
@@ -548,6 +570,43 @@ function updateBookingTotals() {
     `${state.selectedEvent.currency}${total.toFixed(2)}`;
 }
 
+// Render Auth buttons / User Profile in Header
+function renderAuthUI() {
+  if (!elements.authActions) return;
+
+  if (state.currentUser && state.authToken) {
+    const initial = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
+    const shortName = (state.currentUser.full_name || 'User').split(' ')[0];
+
+    elements.authActions.innerHTML = `
+      <div class="user-greeting">
+        <span class="user-avatar">${initial}</span>
+        <span>Hi, <strong>${shortName}</strong></span>
+      </div>
+      <button class="btn btn-outline btn-logout" id="btnLogout">Log out</button>
+    `;
+
+    document.getElementById('btnLogout').addEventListener('click', handleLogout);
+  } else {
+    elements.authActions.innerHTML = `
+      <button class="btn btn-ghost" id="btnLogIn">Log in</button>
+      <button class="btn btn-primary" id="btnSignUp">Sign up</button>
+    `;
+
+    document.getElementById('btnLogIn').addEventListener('click', () => openAuthModal('login'));
+    document.getElementById('btnSignUp').addEventListener('click', () => openAuthModal('signup'));
+  }
+}
+
+function handleLogout() {
+  state.currentUser = null;
+  state.authToken = null;
+  localStorage.removeItem('currentUser');
+  localStorage.removeItem('authToken');
+  renderAuthUI();
+  showToast('You have been logged out.');
+}
+
 // Auth Modal
 function openAuthModal(mode) {
   setAuthTab(mode);
@@ -558,11 +617,15 @@ function setAuthTab(mode) {
   if (mode === 'login') {
     elements.tabLogIn.classList.add('active');
     elements.tabSignUp.classList.remove('active');
+    if (elements.fullNameGroup) elements.fullNameGroup.style.display = 'none';
+    if (elements.authFullName) elements.authFullName.removeAttribute('required');
     elements.authSubmitBtn.textContent = 'Log in to TicketRush';
     elements.authFooterText.innerHTML = `Don't have an account? <a href="#" id="switchAuthLink">Sign up free</a>`;
   } else {
     elements.tabSignUp.classList.add('active');
     elements.tabLogIn.classList.remove('active');
+    if (elements.fullNameGroup) elements.fullNameGroup.style.display = 'block';
+    if (elements.authFullName) elements.authFullName.setAttribute('required', 'true');
     elements.authSubmitBtn.textContent = 'Create free account';
     elements.authFooterText.innerHTML = `Already have an account? <a href="#" id="switchAuthLink">Log in</a>`;
   }
@@ -576,10 +639,77 @@ function setAuthTab(mode) {
   }
 }
 
-function handleAuthSubmit() {
+async function handleAuthSubmit(e) {
+  if (e) e.preventDefault();
+
   const isLogIn = elements.tabLogIn.classList.contains('active');
-  closeAllModals();
-  showToast(isLogIn ? 'Welcome back! Signed in successfully.' : 'Welcome to TicketRush! Account created.');
+  const email = elements.authEmail.value.trim();
+  const password = elements.authPassword.value;
+  const fullName = elements.authFullName ? elements.authFullName.value.trim() : '';
+
+  if (!email || !password || (!isLogIn && !fullName)) {
+    showToast('Please fill in all required fields.');
+    return;
+  }
+
+  const submitBtn = elements.authSubmitBtn;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Processing...';
+
+  try {
+    if (!isLogIn) {
+      // 1. Sign Up (Register)
+      const regRes = await fetch('http://localhost:8000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: fullName,
+          email: email,
+          password: password
+        })
+      });
+
+      const regData = await regRes.json();
+      if (!regRes.ok) {
+        throw new Error(regData.detail || 'Registration failed.');
+      }
+    }
+
+    // 2. Log In
+    const loginRes = await fetch('http://localhost:8000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        password: password
+      })
+    });
+
+    const loginData = await loginRes.json();
+    if (!loginRes.ok) {
+      throw new Error(loginData.detail || 'Login failed.');
+    }
+
+    // Lưu token & user vào state + localStorage
+    state.authToken = loginData.access_token;
+    state.currentUser = loginData.user;
+    localStorage.setItem('authToken', state.authToken);
+    localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+
+    renderAuthUI();
+    closeAllModals();
+    showToast(isLogIn ? `Welcome back, ${state.currentUser.full_name}!` : `Account created! Welcome, ${state.currentUser.full_name}!`);
+
+    // Reset form
+    elements.authForm.reset();
+
+  } catch (error) {
+    console.error('Auth error:', error);
+    showToast(error.message || 'Authentication failed.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = isLogIn ? 'Log in to TicketRush' : 'Create free account';
+  }
 }
 
 // Modal Dismiss

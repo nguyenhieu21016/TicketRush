@@ -29,8 +29,8 @@ class BookingCreateRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     event_id: int = Field(gt=0)
-    buyer_name: str = Field(min_length=1, max_length=100)
-    buyer_email: EmailStr
+    buyer_name: str | None = Field(default=None, max_length=100)
+    buyer_email: EmailStr | None = None
     quantity: int = Field(ge=1, le=10)
 
 

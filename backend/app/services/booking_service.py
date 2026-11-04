@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from app.models import Event, Booking, Ticket
+from app.models import Event, Booking, Ticket, User
 from app.schemas import (
     BookingCreateRequest,
     BookingResponse,
@@ -15,10 +15,11 @@ from app.schemas import (
 
 def create_booking(
     db: Session,
-    booking_data: BookingCreateRequest
+    booking_data: BookingCreateRequest,
+    user: User | None = None
 ) -> BookingResponse:
 
-    with db.begin():
+    with db.begin_nested():
 
         # 1. Find the event
         event = db.query(Event).filter(
@@ -56,12 +57,17 @@ def create_booking(
         unit_price = event.price
         total_amount = unit_price * booking_data.quantity
 
+        buyer_name = user.full_name if user else (booking_data.buyer_name or "Guest")
+        buyer_email = user.email if user else (str(booking_data.buyer_email) if booking_data.buyer_email else "guest@example.com")
+        user_id = user.id if user else None
+
         # 4. Create booking
         booking = Booking(
             booking_code=f"TR-{uuid4().hex[:12].upper()}",
             event_id=event.id,
-            buyer_name=booking_data.buyer_name,
-            buyer_email=str(booking_data.buyer_email),
+            user_id=user_id,
+            buyer_name=buyer_name,
+            buyer_email=buyer_email,
             quantity=booking_data.quantity,
             unit_price=unit_price,
             total_amount=total_amount,
@@ -111,5 +117,5 @@ def create_booking(
             ]
         )
 
-    # Transaction is committed when the with block exits
+    db.commit()
     return response
