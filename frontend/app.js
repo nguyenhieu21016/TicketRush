@@ -30,6 +30,9 @@ async function fetchEventsFromAPI() {
         venue: event.venue,
         image: event.image_url,
 
+        totalTickets: Number(event.total_tickets),
+        availableTickets: Number(event.available_tickets),
+
         dateRank: eventDate.getTime(),
         month: eventDate.toLocaleDateString('en-US', {
           month: 'short'
@@ -64,9 +67,9 @@ const state = {
   pageSize: 6,
   totalEventsCount: 48, // Visual match for the 48 total in London
   selectedEvent: null,
-  ticketTierMultiplier: 1,
+  // ticketTierMultiplier: 1,
   ticketQuantity: 1,
-  bookingFee: 2.50
+  // bookingFee: 2.50
 };
 
 // DOM Elements
@@ -86,6 +89,7 @@ const elements = {
   prevPageBtn: document.getElementById('prevPageBtn'),
   nextPageBtn: document.getElementById('nextPageBtn'),
   pageNumbers: document.getElementById('pageNumbers'),
+  bookingStockInfo: document.getElementById('bookingStockInfo'),
 
   // Modals
   bookingModalBackdrop: document.getElementById('bookingModalBackdrop'),
@@ -94,8 +98,6 @@ const elements = {
   bookingDate: document.getElementById('bookingDate'),
   bookingEventTitle: document.getElementById('bookingEventTitle'),
   bookingVenue: document.getElementById('bookingVenue'),
-  tierPrice: document.getElementById('tierPrice'),
-  tierPriceVip: document.getElementById('tierPriceVip'),
   qtyMinus: document.getElementById('qtyMinus'),
   qtyPlus: document.getElementById('qtyPlus'),
   qtyVal: document.getElementById('qtyVal'),
@@ -186,15 +188,6 @@ function bindEvents() {
     if (e.target === elements.bookingModalBackdrop) closeAllModals();
   });
 
-  document.querySelectorAll('.ticket-tier').forEach(tier => {
-    tier.addEventListener('click', () => {
-      document.querySelectorAll('.ticket-tier').forEach(t => t.classList.remove('active'));
-      tier.classList.add('active');
-      state.ticketTierMultiplier = parseFloat(tier.getAttribute('data-price-mult') || 1);
-      updateBookingTotals();
-    });
-  });
-
   elements.qtyMinus.addEventListener('click', () => {
     if (state.ticketQuantity > 1) {
       state.ticketQuantity--;
@@ -204,26 +197,97 @@ function bindEvents() {
   });
 
   elements.qtyPlus.addEventListener('click', () => {
-    if (state.ticketQuantity < 10) {
+    const maxQuantity = Math.min(
+      10,
+      state.selectedEvent.availableTickets
+    );
+
+    if (state.ticketQuantity < maxQuantity) {
       state.ticketQuantity++;
       elements.qtyVal.textContent = state.ticketQuantity;
       updateBookingTotals();
     }
   });
 
-  elements.btnConfirmBooking.addEventListener('click', () => {
+
+  elements.btnConfirmBooking.addEventListener('click', async () => {
     const name = elements.bookingName.value.trim();
     const email = elements.bookingEmail.value.trim();
 
+    // 1. Validate input
     if (!name || !email) {
-      showToast('Please enter your name and email to receive tickets.');
-      elements.bookingName.focus();
+      showToast('Please enter your name and email.');
       return;
     }
 
-    closeAllModals();
-    showToast(`Order confirmed for ${name}! ${state.ticketQuantity}x tickets sent to ${email}.`);
+    if (!state.selectedEvent) {
+      showToast('Please select an event first.');
+      return;
+    }
+
+    const button = elements.btnConfirmBooking;
+
+    // Prevent duplicate submissions
+    button.disabled = true;
+    button.textContent = 'Processing...';
+
+    try {
+      // 2. Prepare booking request
+      const bookingData = {
+        event_id: state.selectedEvent.id,
+        buyer_name: name,
+        buyer_email: email,
+        quantity: state.ticketQuantity
+      };
+
+      // 3. Send request to Backend
+      const response = await fetch(
+        'http://localhost:8000/api/bookings/',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(bookingData)
+        }
+      );
+
+      const result = await response.json();
+
+      // 4. Handle API errors
+      if (!response.ok) {
+        const detail = Array.isArray(result.detail)
+          ? result.detail.map(error => error.msg).join(', ')
+          : result.detail;
+
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+
+      // 5. Booking successful
+      console.log('Booking response:', result);
+
+      closeAllModals();
+
+      showToast(
+        `Booking confirmed! Code: ${result.booking_code}`
+      );
+
+      // Clear customer inputs
+      elements.bookingName.value = '';
+      elements.bookingEmail.value = '';
+
+      // Refresh events from Backend
+      await fetchEventsFromAPI();
+
+    } catch (error) {
+      console.error('Booking failed:', error);
+      showToast(error.message || 'Unable to complete booking.');
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Proceed to Checkout';
+    }
   });
+
 
   // Auth Modals
   elements.btnLogIn.addEventListener('click', () => openAuthModal('login'));
@@ -386,14 +450,18 @@ function createEventCardHTML(evt) {
 
         <h3 class="event-title">${evt.title}</h3>
 
+        <div class="event-stock ${evt.availableTickets === 0 ? 'sold-out' : ''}">
+          ${evt.availableTickets > 0 ? `${evt.availableTickets} tickets left` : 'Sold out'}
+        </div>
+
         <div class="card-footer">
           <div class="price-block">
             <span class="price-label">From</span>
             <span class="price-amount">${evt.currency}${evt.price}</span>
           </div>
 
-          <button type="button" class="btn-book" data-id="${evt.id}" aria-label="Book tickets for ${evt.title}">
-            <span>Book tickets</span>
+          <button type="button" class="btn-book" data-id="${evt.id}" aria-label="Book tickets for ${evt.title}" ${evt.availableTickets <= 0 ? 'disabled' : ''}>
+            <span>${evt.availableTickets <= 0 ? 'Sold out' : 'Book tickets'}</span>
             <svg class="arrow-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="7" y1="17" x2="17" y2="7"></line>
               <polyline points="7 7 17 7 17 17"></polyline>
@@ -437,25 +505,29 @@ function updatePaginationUI(currentPage, totalPages) {
 
 // Open Booking Modal
 function openBookingModal(eventData) {
+  // Check stock first
+  if (eventData.availableTickets <= 0) {
+    showToast('Sorry, this event is sold out.');
+    return;
+  }
+
   state.selectedEvent = eventData;
   state.ticketQuantity = 1;
-  state.ticketTierMultiplier = 1;
+
   elements.qtyVal.textContent = '1';
 
-  // Reset active tier
-  const tiers = elements.bookingModalBackdrop.querySelectorAll('.ticket-tier');
-  tiers.forEach((t, i) => t.classList.toggle('active', i === 0));
+  elements.bookingImg.src = eventData.image || '';
+  elements.bookingDate.textContent =
+    `${eventData.month} ${eventData.day} • ${eventData.weekday}`;
 
-  elements.bookingImg.src = eventData.image;
-  elements.bookingDate.textContent = `${eventData.month} ${eventData.day} • ${eventData.weekday}`;
   elements.bookingEventTitle.textContent = eventData.title;
   elements.bookingVenue.textContent = eventData.venue;
 
-  // Prices
-  elements.tierPrice.textContent = `${eventData.currency}${eventData.price}`;
-  elements.tierPriceVip.textContent = `${eventData.currency}${Math.round(eventData.price * 1.6)}`;
+  elements.bookingStockInfo.textContent =
+    `${eventData.availableTickets} tickets available`;
 
   updateBookingTotals();
+
   elements.bookingModalBackdrop.classList.add('active');
 }
 
@@ -463,13 +535,17 @@ function openBookingModal(eventData) {
 function updateBookingTotals() {
   if (!state.selectedEvent) return;
 
-  const basePrice = state.selectedEvent.price;
-  const unitPrice = Math.round(basePrice * state.ticketTierMultiplier);
-  const subtotal = unitPrice * state.ticketQuantity;
-  const total = subtotal + state.bookingFee;
+  const unitPrice = Number(state.selectedEvent.price);
+  const quantity = state.ticketQuantity;
 
-  elements.summarySubtotal.textContent = `${state.selectedEvent.currency}${subtotal.toFixed(2)}`;
-  elements.summaryTotal.textContent = `${state.selectedEvent.currency}${total.toFixed(2)}`;
+  const subtotal = unitPrice * quantity;
+  const total = subtotal;
+
+  elements.summarySubtotal.textContent =
+    `${state.selectedEvent.currency}${subtotal.toFixed(2)}`;
+
+  elements.summaryTotal.textContent =
+    `${state.selectedEvent.currency}${total.toFixed(2)}`;
 }
 
 // Auth Modal

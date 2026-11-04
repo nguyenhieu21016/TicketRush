@@ -176,3 +176,4 @@ docker compose up -d
 - Đảm bảo Backend đang chạy tại `http://localhost:8000`.
 - Kiểm tra xem Frontend có đang được mở đúng cổng `5500` (được cấu hình trong [backend/app/main.py](file:///home/gotever/Projects/TicketRush/backend/app/main.py)) hay không.
 - Mở DevTools (`F12`) trên trình duyệt và kiểm tra tab **Console** và **Network**.
+
