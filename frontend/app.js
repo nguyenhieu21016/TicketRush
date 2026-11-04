@@ -576,12 +576,13 @@ function renderAuthUI() {
 
   if (state.currentUser && state.authToken) {
     const initial = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
-    const shortName = (state.currentUser.full_name || 'User').split(' ')[0];
+    const nameParts = (state.currentUser.full_name || 'User').trim().split(/\s+/);
+    const displayName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
 
     elements.authActions.innerHTML = `
       <div class="user-greeting">
         <span class="user-avatar">${initial}</span>
-        <span>Hi, <strong>${shortName}</strong></span>
+        <span>Hi, <strong>${displayName}</strong></span>
       </div>
       <button class="btn btn-outline btn-logout" id="btnLogout">Log out</button>
     `;
