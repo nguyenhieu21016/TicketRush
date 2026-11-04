@@ -13,7 +13,7 @@ from sqlalchemy import (
     func
 )
 from sqlalchemy.dialects.mysql import TINYINT, TIMESTAMP
-
+from sqlalchemy.orm import relationship
 from app.database import Base
 
 
@@ -91,7 +91,15 @@ class Booking(Base):
         TIMESTAMP,
         nullable=False,
         server_default=func.current_timestamp()
-)
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+    user = relationship("User", back_populates="bookings")
 
 
 class Ticket(Base):
@@ -120,3 +128,17 @@ class Ticket(Base):
         nullable=False,
         server_default=func.current_timestamp()
     )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    full_name = Column(String(100), nullable=False)
+    role = Column(Enum("USER", "ADMIN", name="user_role"), default="USER", nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    bookings = relationship("Booking", back_populates="user")
