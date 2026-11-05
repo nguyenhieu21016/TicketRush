@@ -49,6 +49,8 @@ class BookingResponse(BaseModel):
     booking_code: str
     event_id: int
     event_name: str
+    event_venue: str
+    event_date: datetime
 
     buyer_name: str
     buyer_email: EmailStr
@@ -62,6 +64,11 @@ class BookingResponse(BaseModel):
     created_at: datetime
 
     tickets: list[TicketResponse]
+
+
+class BookingListResponse(BaseModel):
+    bookings: list[BookingResponse]
+    total: int
 
 
 class UserRegisterRequest(BaseModel):

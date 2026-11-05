@@ -56,6 +56,7 @@
 
   <!-- Main Content -->
   <main class="main-content container">
+    <section id="eventsView">
     <!-- Huge Display Heading -->
     <h1 class="page-title">Events</h1>
 
@@ -127,6 +128,19 @@
         </button>
       </nav>
     </div>
+    </section>
+
+    <section id="purchasedTicketsView" class="purchased-tickets-view" hidden aria-labelledby="ticketsTitle">
+      <div class="tickets-heading">
+        <div>
+          <h1 class="page-title" id="ticketsTitle">My tickets</h1>
+          <p class="tickets-subtitle">Your purchased tickets and booking details.</p>
+        </div>
+        <button type="button" class="btn btn-outline" id="backToEvents">Browse events</button>
+      </div>
+      <p class="tickets-status" id="ticketsStatus" role="status" aria-live="polite"></p>
+      <div class="tickets-list" id="purchasedTicketsList"></div>
+    </section>
   </main>
 
   <!-- Site Footer -->

@@ -92,6 +92,11 @@ const elements = {
   nextPageBtn: document.getElementById('nextPageBtn'),
   pageNumbers: document.getElementById('pageNumbers'),
   bookingStockInfo: document.getElementById('bookingStockInfo'),
+  eventsView: document.getElementById('eventsView'),
+  purchasedTicketsView: document.getElementById('purchasedTicketsView'),
+  purchasedTicketsList: document.getElementById('purchasedTicketsList'),
+  ticketsStatus: document.getElementById('ticketsStatus'),
+  backToEvents: document.getElementById('backToEvents'),
 
   // Modals
   bookingModalBackdrop: document.getElementById('bookingModalBackdrop'),
@@ -191,6 +196,8 @@ function bindEvents() {
       setPage(state.currentPage + 1);
     }
   });
+
+  elements.backToEvents.addEventListener('click', showEventsView);
 
   // Booking Modal
   elements.closeBookingModal.addEventListener('click', closeAllModals);
@@ -584,9 +591,11 @@ function renderAuthUI() {
         <span class="user-avatar">${initial}</span>
         <span>Hi, <strong>${displayName}</strong></span>
       </div>
+      <button type="button" class="btn btn-outline" id="btnMyTickets">My tickets</button>
       <button class="btn btn-outline btn-logout" id="btnLogout">Log out</button>
     `;
 
+    document.getElementById('btnMyTickets').addEventListener('click', showPurchasedTickets);
     document.getElementById('btnLogout').addEventListener('click', handleLogout);
   } else {
     elements.authActions.innerHTML = `
@@ -604,8 +613,97 @@ function handleLogout() {
   state.authToken = null;
   localStorage.removeItem('currentUser');
   localStorage.removeItem('authToken');
+  showEventsView();
   renderAuthUI();
   showToast('You have been logged out.');
+}
+
+function showEventsView() {
+  elements.eventsView.hidden = false;
+  elements.purchasedTicketsView.hidden = true;
+}
+
+async function showPurchasedTickets() {
+  if (!state.currentUser || !state.authToken) {
+    openAuthModal('login');
+    showToast('Please log in to view your tickets.');
+    return;
+  }
+
+  elements.eventsView.hidden = true;
+  elements.purchasedTicketsView.hidden = false;
+  elements.ticketsStatus.textContent = 'Loading your tickets...';
+  elements.purchasedTicketsList.innerHTML = '';
+
+  try {
+    const response = await fetch('http://localhost:8000/api/bookings/me', {
+      headers: { 'Authorization': `Bearer ${state.authToken}` }
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleLogout();
+        openAuthModal('login');
+        return;
+      }
+      throw new Error(result.detail || `HTTP ${response.status}`);
+    }
+
+    renderPurchasedTickets(result.bookings || []);
+  } catch (error) {
+    console.error('Failed to fetch purchased tickets:', error);
+    elements.ticketsStatus.textContent = error.message || 'Unable to load your tickets.';
+  }
+}
+
+function renderPurchasedTickets(bookings) {
+  if (bookings.length === 0) {
+    elements.ticketsStatus.textContent = 'You have not purchased any tickets yet.';
+    return;
+  }
+
+  elements.ticketsStatus.textContent = `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`;
+  elements.purchasedTicketsList.innerHTML = bookings.map(booking => {
+    const tickets = (booking.tickets || []).map(ticket => `
+      <li class="ticket-code-item">
+        <code>${escapeHTML(ticket.ticket_code)}</code>
+        <span class="ticket-status">${escapeHTML(ticket.status)}</span>
+      </li>
+    `).join('');
+    const eventDate = new Date(booking.event_date).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+
+    return `
+      <article class="purchased-ticket-card">
+        <div class="purchased-ticket-heading">
+          <div>
+            <p class="booking-reference">Booking ${escapeHTML(booking.booking_code)}</p>
+            <h2>${escapeHTML(booking.event_name)}</h2>
+            <p class="purchased-event-meta">${escapeHTML(booking.event_venue)} · ${escapeHTML(eventDate)}</p>
+          </div>
+          <span class="booking-status">${escapeHTML(booking.status)}</span>
+        </div>
+        <div class="purchased-ticket-summary">
+          <span>${booking.quantity} ticket${booking.quantity === 1 ? '' : 's'}</span>
+          <strong>${escapeHTML(booking.currency)}${Number(booking.total_amount).toFixed(2)}</strong>
+        </div>
+        <ul class="ticket-code-list">${tickets}</ul>
+      </article>
+    `;
+  }).join('');
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
 }
 
 // Auth Modal

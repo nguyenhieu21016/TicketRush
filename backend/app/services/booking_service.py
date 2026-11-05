@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Event, Booking, Ticket, User
 from app.schemas import (
+    BookingListResponse,
     BookingCreateRequest,
     BookingResponse,
     TicketResponse
@@ -103,6 +104,8 @@ def create_booking(
             booking_code=booking.booking_code,
             event_id=booking.event_id,
             event_name=event.name,
+            event_venue=event.venue,
+            event_date=event.event_date,
             buyer_name=booking.buyer_name,
             buyer_email=booking.buyer_email,
             quantity=booking.quantity,
@@ -119,3 +122,51 @@ def create_booking(
 
     db.commit()
     return response
+
+
+def get_user_bookings(db: Session, user: User) -> BookingListResponse:
+    rows = (
+        db.query(Booking, Event.name, Event.venue, Event.event_date)
+        .join(Event, Booking.event_id == Event.id)
+        .filter(Booking.user_id == user.id)
+        .order_by(Booking.created_at.desc(), Booking.id.desc())
+        .all()
+    )
+
+    booking_ids = [booking.id for booking, _, _, _ in rows]
+    tickets_by_booking: dict[int, list[Ticket]] = {}
+    if booking_ids:
+        tickets = (
+            db.query(Ticket)
+            .filter(Ticket.booking_id.in_(booking_ids))
+            .order_by(Ticket.id.asc())
+            .all()
+        )
+        for ticket in tickets:
+            tickets_by_booking.setdefault(ticket.booking_id, []).append(ticket)
+
+    bookings = [
+        BookingResponse(
+            id=booking.id,
+            booking_code=booking.booking_code,
+            event_id=booking.event_id,
+            event_name=event_name,
+            event_venue=event_venue,
+            event_date=event_date,
+            buyer_name=booking.buyer_name,
+            buyer_email=booking.buyer_email,
+            quantity=booking.quantity,
+            unit_price=booking.unit_price,
+            total_amount=booking.total_amount,
+            currency=booking.currency,
+            status=booking.status,
+            created_at=booking.created_at,
+            tickets=[
+                TicketResponse.model_validate(ticket)
+                for ticket in tickets_by_booking.get(booking.id, [])
+            ]
+        )
+        for booking, event_name, event_venue, event_date in rows
+    ]
+
+    return BookingListResponse(bookings=bookings, total=len(bookings))
