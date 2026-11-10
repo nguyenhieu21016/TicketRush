@@ -113,6 +113,43 @@ def get_admin_bookings(
     )
 
 
+def cancel_event(db: Session, event_id: int) -> dict:
+    """Hủy sự kiện và cancel toàn bộ bookings liên quan."""
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found."
+        )
+
+    if event.status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Event is already cancelled."
+        )
+
+    # Cancel tất cả bookings CONFIRMED của event này
+    cancelled_bookings = (
+        db.query(Booking)
+        .filter(Booking.event_id == event_id, Booking.status == "CONFIRMED")
+        .all()
+    )
+    cancelled_count = len(cancelled_bookings)
+    for booking in cancelled_bookings:
+        booking.status = "CANCELLED"
+
+    # Đánh dấu event là CANCELLED
+    event.status = "CANCELLED"
+    event.available_tickets = 0  # Không còn vé nào được phép đặt
+
+    db.commit()
+
+    return {
+        "message": f"Event '{event.name}' has been cancelled.",
+        "cancelled_bookings": cancelled_count,
+    }
+
+
 
 def export_bookings_csv(db: Session, event_id: int) -> StreamingResponse:
     """Xuất danh sách booking của event ra file CSV."""

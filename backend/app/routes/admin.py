@@ -9,7 +9,7 @@ from app.database import get_db
 from app.core.deps import require_admin
 from app.models import User
 from app.schemas import EventCreateRequest, EventUpdateRequest, EventResponse, AdminBookingListResponse
-from app.services.admin_service import create_event, update_event, delete_event, get_admin_bookings, export_bookings_csv
+from app.services.admin_service import create_event, update_event, delete_event, get_admin_bookings, export_bookings_csv, cancel_event
 
 
 router = APIRouter(
@@ -68,3 +68,13 @@ def export_csv_route(
 ):
     """Xuất danh sách người đăng ký ra CSV. Chỉ ADMIN."""
     return export_bookings_csv(db, event_id)
+
+
+@router.patch("/events/{event_id}/cancel")
+def cancel_event_route(
+    event_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Hủy sự kiện và tự động cancel toàn bộ bookings. Chỉ ADMIN."""
+    return cancel_event(db, event_id)
