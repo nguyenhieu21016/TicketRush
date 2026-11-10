@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.deps import require_admin
 from app.models import User
-from app.schemas import EventCreateRequest, EventUpdateRequest, EventResponse
-from app.services.admin_service import create_event, update_event, delete_event
+from app.schemas import EventCreateRequest, EventUpdateRequest, EventResponse, AdminBookingListResponse
+from app.services.admin_service import create_event, update_event, delete_event, get_admin_bookings
 
 
 router = APIRouter(
@@ -47,3 +47,13 @@ def delete_event_route(
 ):
     """Xóa sự kiện (chỉ khi chưa có vé bán). Chỉ ADMIN."""
     return delete_event(db, event_id)
+
+
+@router.get("/bookings", response_model=AdminBookingListResponse)
+def list_bookings_route(
+    event_id: int | None = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Xem danh sách bookings. Lọc theo event_id nếu có. Chỉ ADMIN."""
+    return get_admin_bookings(db, event_id=event_id)

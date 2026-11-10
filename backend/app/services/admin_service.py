@@ -5,8 +5,8 @@ Business logic cho Admin: quản lý events.
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models import Event
-from app.schemas import EventCreateRequest, EventUpdateRequest
+from app.models import Event, Booking
+from app.schemas import EventCreateRequest, EventUpdateRequest, AdminBookingListResponse, AdminBookingResponse
 
 
 def create_event(db: Session, request: EventCreateRequest) -> Event:
@@ -80,3 +80,30 @@ def delete_event(db: Session, event_id: int) -> dict:
     db.delete(event)
     db.commit()
     return {"message": f"Event '{event.name}' deleted successfully."}
+
+
+def get_admin_bookings(
+    db: Session,
+    event_id: int | None = None,
+) -> AdminBookingListResponse:
+    """Lấy danh sách bookings. Nếu có event_id thì lọc theo event."""
+    query = db.query(Booking)
+    event_name = None
+
+    if event_id:
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Event not found."
+            )
+        event_name = event.name
+        query = query.filter(Booking.event_id == event_id)
+
+    bookings = query.order_by(Booking.created_at.desc()).all()
+
+    return AdminBookingListResponse(
+        bookings=[AdminBookingResponse.model_validate(b) for b in bookings],
+        total=len(bookings),
+        event_name=event_name,
+    )

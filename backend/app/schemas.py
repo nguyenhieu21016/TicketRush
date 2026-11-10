@@ -131,3 +131,26 @@ class EventUpdateRequest(BaseModel):
     price: Decimal | None = Field(default=None, ge=0)
     currency: str | None = Field(default=None, max_length=10)
     event_date: datetime | None = None
+
+
+class AdminBookingResponse(BaseModel):
+    """Booking response cho admin — bao gồm thông tin user."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    booking_code: str
+    event_id: int
+    buyer_name: str
+    buyer_email: EmailStr
+    quantity: int
+    unit_price: Decimal
+    total_amount: Decimal
+    currency: str
+    status: str
+    created_at: datetime
+
+
+class AdminBookingListResponse(BaseModel):
+    bookings: list[AdminBookingResponse]
+    total: int
+    event_name: str | None = None
