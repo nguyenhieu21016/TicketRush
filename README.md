@@ -148,6 +148,8 @@ FastAPI hỗ trợ tài liệu API tương tác tự động. Khi backend đang 
 ### Các API chính hiện tại:
 - `GET /api/events/`: Lấy danh sách sự kiện sắp diễn ra kèm tổng số lượng.
 - `GET /api/events/{event_id}`: Lấy chi tiết thông tin sự kiện theo ID.
+- `POST /api/bookings/`: Đặt vé cho tài khoản đang đăng nhập.
+- `GET /api/bookings/me`: Lấy danh sách đơn và mã vé của tài khoản đang đăng nhập (yêu cầu xác thực).
 
 ---
 
@@ -176,4 +178,3 @@ docker compose up -d
 - Đảm bảo Backend đang chạy tại `http://localhost:8000`.
 - Kiểm tra xem Frontend có đang được mở đúng cổng `5500` (được cấu hình trong [backend/app/main.py](file:///home/gotever/Projects/TicketRush/backend/app/main.py)) hay không.
 - Mở DevTools (`F12`) trên trình duyệt và kiểm tra tab **Console** và **Network**.
-

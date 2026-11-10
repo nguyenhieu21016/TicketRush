@@ -70,6 +70,8 @@ const state = {
   // ticketTierMultiplier: 1,
   ticketQuantity: 1,
   // bookingFee: 2.50
+  currentUser: JSON.parse(localStorage.getItem('currentUser') || 'null'),
+  authToken: localStorage.getItem('authToken') || null
 };
 
 // DOM Elements
@@ -90,6 +92,11 @@ const elements = {
   nextPageBtn: document.getElementById('nextPageBtn'),
   pageNumbers: document.getElementById('pageNumbers'),
   bookingStockInfo: document.getElementById('bookingStockInfo'),
+  eventsView: document.getElementById('eventsView'),
+  purchasedTicketsView: document.getElementById('purchasedTicketsView'),
+  purchasedTicketsList: document.getElementById('purchasedTicketsList'),
+  ticketsStatus: document.getElementById('ticketsStatus'),
+  backToEvents: document.getElementById('backToEvents'),
 
   // Modals
   bookingModalBackdrop: document.getElementById('bookingModalBackdrop'),
@@ -103,11 +110,14 @@ const elements = {
   qtyVal: document.getElementById('qtyVal'),
   summarySubtotal: document.getElementById('summarySubtotal'),
   summaryTotal: document.getElementById('summaryTotal'),
-  bookingName: document.getElementById('bookingName'),
-  bookingEmail: document.getElementById('bookingEmail'),
+  bookingCustomerInfo: document.getElementById('bookingCustomerInfo'),
+  bookingUserAvatar: document.getElementById('bookingUserAvatar'),
+  bookingUserName: document.getElementById('bookingUserName'),
+  bookingUserEmail: document.getElementById('bookingUserEmail'),
   btnConfirmBooking: document.getElementById('btnConfirmBooking'),
 
   // Auth
+  authActions: document.getElementById('authActions'),
   authModalBackdrop: document.getElementById('authModalBackdrop'),
   closeAuthModal: document.getElementById('closeAuthModal'),
   btnLogIn: document.getElementById('btnLogIn'),
@@ -117,6 +127,10 @@ const elements = {
   authSubmitBtn: document.getElementById('authSubmitBtn'),
   authFooterText: document.getElementById('authFooterText'),
   authForm: document.getElementById('authForm'),
+  fullNameGroup: document.getElementById('fullNameGroup'),
+  authFullName: document.getElementById('authFullName'),
+  authEmail: document.getElementById('authEmail'),
+  authPassword: document.getElementById('authPassword'),
 
   // Toast
   toastNotification: document.getElementById('toastNotification'),
@@ -126,6 +140,7 @@ const elements = {
 // Initialize Application
 function init() {
   bindEvents();
+  renderAuthUI();
   render(); // vẽ ban đầu (rỗng)
   fetchEventsFromAPI(); // gọi API lấy dữ liệu thật
 }
@@ -182,6 +197,8 @@ function bindEvents() {
     }
   });
 
+  elements.backToEvents.addEventListener('click', showEventsView);
+
   // Booking Modal
   elements.closeBookingModal.addEventListener('click', closeAllModals);
   elements.bookingModalBackdrop.addEventListener('click', (e) => {
@@ -211,12 +228,11 @@ function bindEvents() {
 
 
   elements.btnConfirmBooking.addEventListener('click', async () => {
-    const name = elements.bookingName.value.trim();
-    const email = elements.bookingEmail.value.trim();
-
-    // 1. Validate input
-    if (!name || !email) {
-      showToast('Please enter your name and email.');
+    // 1. Kiểm tra đăng nhập
+    if (!state.currentUser || !state.authToken) {
+      closeAllModals();
+      openAuthModal('login');
+      showToast('Please log in to book tickets.');
       return;
     }
 
@@ -232,21 +248,22 @@ function bindEvents() {
     button.textContent = 'Processing...';
 
     try {
-      // 2. Prepare booking request
+      // 2. Prepare booking request (Lấy thẳng tên và email từ tài khoản đang đăng nhập)
       const bookingData = {
         event_id: state.selectedEvent.id,
-        buyer_name: name,
-        buyer_email: email,
+        buyer_name: state.currentUser.full_name,
+        buyer_email: state.currentUser.email,
         quantity: state.ticketQuantity
       };
 
-      // 3. Send request to Backend
+      // 3. Send request to Backend kèm Bearer Token
       const response = await fetch(
         'http://localhost:8000/api/bookings/',
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.authToken}`
           },
           body: JSON.stringify(bookingData)
         }
@@ -272,10 +289,6 @@ function bindEvents() {
         `Booking confirmed! Code: ${result.booking_code}`
       );
 
-      // Clear customer inputs
-      elements.bookingName.value = '';
-      elements.bookingEmail.value = '';
-
       // Refresh events from Backend
       await fetchEventsFromAPI();
 
@@ -290,8 +303,6 @@ function bindEvents() {
 
 
   // Auth Modals
-  elements.btnLogIn.addEventListener('click', () => openAuthModal('login'));
-  elements.btnSignUp.addEventListener('click', () => openAuthModal('signup'));
   elements.closeAuthModal.addEventListener('click', closeAllModals);
   elements.authModalBackdrop.addEventListener('click', (e) => {
     if (e.target === elements.authModalBackdrop) closeAllModals();
@@ -505,6 +516,13 @@ function updatePaginationUI(currentPage, totalPages) {
 
 // Open Booking Modal
 function openBookingModal(eventData) {
+  // 1. Kiểm tra đăng nhập trước khi cho mở modal đặt vé
+  if (!state.currentUser || !state.authToken) {
+    openAuthModal('login');
+    showToast('Please log in or sign up to book tickets.');
+    return;
+  }
+
   // Check stock first
   if (eventData.availableTickets <= 0) {
     showToast('Sorry, this event is sold out.');
@@ -525,6 +543,17 @@ function openBookingModal(eventData) {
 
   elements.bookingStockInfo.textContent =
     `${eventData.availableTickets} tickets available`;
+
+  // Cập nhật thông tin người đặt vé từ tài khoản đã đăng nhập
+  if (elements.bookingUserName) {
+    elements.bookingUserName.textContent = state.currentUser.full_name;
+  }
+  if (elements.bookingUserEmail) {
+    elements.bookingUserEmail.textContent = state.currentUser.email;
+  }
+  if (elements.bookingUserAvatar) {
+    elements.bookingUserAvatar.textContent = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
+  }
 
   updateBookingTotals();
 
@@ -548,6 +577,135 @@ function updateBookingTotals() {
     `${state.selectedEvent.currency}${total.toFixed(2)}`;
 }
 
+// Render Auth buttons / User Profile in Header
+function renderAuthUI() {
+  if (!elements.authActions) return;
+
+  if (state.currentUser && state.authToken) {
+    const initial = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
+    const nameParts = (state.currentUser.full_name || 'User').trim().split(/\s+/);
+    const displayName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+
+    elements.authActions.innerHTML = `
+      <div class="user-greeting">
+        <span class="user-avatar">${initial}</span>
+        <span>Hi, <strong>${displayName}</strong></span>
+      </div>
+      <button type="button" class="btn btn-outline" id="btnMyTickets">My tickets</button>
+      <button class="btn btn-outline btn-logout" id="btnLogout">Log out</button>
+    `;
+
+    document.getElementById('btnMyTickets').addEventListener('click', showPurchasedTickets);
+    document.getElementById('btnLogout').addEventListener('click', handleLogout);
+  } else {
+    elements.authActions.innerHTML = `
+      <button class="btn btn-ghost" id="btnLogIn">Log in</button>
+      <button class="btn btn-primary" id="btnSignUp">Sign up</button>
+    `;
+
+    document.getElementById('btnLogIn').addEventListener('click', () => openAuthModal('login'));
+    document.getElementById('btnSignUp').addEventListener('click', () => openAuthModal('signup'));
+  }
+}
+
+function handleLogout() {
+  state.currentUser = null;
+  state.authToken = null;
+  localStorage.removeItem('currentUser');
+  localStorage.removeItem('authToken');
+  showEventsView();
+  renderAuthUI();
+  showToast('You have been logged out.');
+}
+
+function showEventsView() {
+  elements.eventsView.hidden = false;
+  elements.purchasedTicketsView.hidden = true;
+}
+
+async function showPurchasedTickets() {
+  if (!state.currentUser || !state.authToken) {
+    openAuthModal('login');
+    showToast('Please log in to view your tickets.');
+    return;
+  }
+
+  elements.eventsView.hidden = true;
+  elements.purchasedTicketsView.hidden = false;
+  elements.ticketsStatus.textContent = 'Loading your tickets...';
+  elements.purchasedTicketsList.innerHTML = '';
+
+  try {
+    const response = await fetch('http://localhost:8000/api/bookings/me', {
+      headers: { 'Authorization': `Bearer ${state.authToken}` }
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleLogout();
+        openAuthModal('login');
+        return;
+      }
+      throw new Error(result.detail || `HTTP ${response.status}`);
+    }
+
+    renderPurchasedTickets(result.bookings || []);
+  } catch (error) {
+    console.error('Failed to fetch purchased tickets:', error);
+    elements.ticketsStatus.textContent = error.message || 'Unable to load your tickets.';
+  }
+}
+
+function renderPurchasedTickets(bookings) {
+  if (bookings.length === 0) {
+    elements.ticketsStatus.textContent = 'You have not purchased any tickets yet.';
+    return;
+  }
+
+  elements.ticketsStatus.textContent = `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`;
+  elements.purchasedTicketsList.innerHTML = bookings.map(booking => {
+    const tickets = (booking.tickets || []).map(ticket => `
+      <li class="ticket-code-item">
+        <code>${escapeHTML(ticket.ticket_code)}</code>
+        <span class="ticket-status">${escapeHTML(ticket.status)}</span>
+      </li>
+    `).join('');
+    const eventDate = new Date(booking.event_date).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+
+    return `
+      <article class="purchased-ticket-card">
+        <div class="purchased-ticket-heading">
+          <div>
+            <p class="booking-reference">Booking ${escapeHTML(booking.booking_code)}</p>
+            <h2>${escapeHTML(booking.event_name)}</h2>
+            <p class="purchased-event-meta">${escapeHTML(booking.event_venue)} · ${escapeHTML(eventDate)}</p>
+          </div>
+          <span class="booking-status">${escapeHTML(booking.status)}</span>
+        </div>
+        <div class="purchased-ticket-summary">
+          <span>${booking.quantity} ticket${booking.quantity === 1 ? '' : 's'}</span>
+          <strong>${escapeHTML(booking.currency)}${Number(booking.total_amount).toFixed(2)}</strong>
+        </div>
+        <ul class="ticket-code-list">${tickets}</ul>
+      </article>
+    `;
+  }).join('');
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
+}
+
 // Auth Modal
 function openAuthModal(mode) {
   setAuthTab(mode);
@@ -558,11 +716,15 @@ function setAuthTab(mode) {
   if (mode === 'login') {
     elements.tabLogIn.classList.add('active');
     elements.tabSignUp.classList.remove('active');
+    if (elements.fullNameGroup) elements.fullNameGroup.style.display = 'none';
+    if (elements.authFullName) elements.authFullName.removeAttribute('required');
     elements.authSubmitBtn.textContent = 'Log in to TicketRush';
     elements.authFooterText.innerHTML = `Don't have an account? <a href="#" id="switchAuthLink">Sign up free</a>`;
   } else {
     elements.tabSignUp.classList.add('active');
     elements.tabLogIn.classList.remove('active');
+    if (elements.fullNameGroup) elements.fullNameGroup.style.display = 'block';
+    if (elements.authFullName) elements.authFullName.setAttribute('required', 'true');
     elements.authSubmitBtn.textContent = 'Create free account';
     elements.authFooterText.innerHTML = `Already have an account? <a href="#" id="switchAuthLink">Log in</a>`;
   }
@@ -576,10 +738,77 @@ function setAuthTab(mode) {
   }
 }
 
-function handleAuthSubmit() {
+async function handleAuthSubmit(e) {
+  if (e) e.preventDefault();
+
   const isLogIn = elements.tabLogIn.classList.contains('active');
-  closeAllModals();
-  showToast(isLogIn ? 'Welcome back! Signed in successfully.' : 'Welcome to TicketRush! Account created.');
+  const email = elements.authEmail.value.trim();
+  const password = elements.authPassword.value;
+  const fullName = elements.authFullName ? elements.authFullName.value.trim() : '';
+
+  if (!email || !password || (!isLogIn && !fullName)) {
+    showToast('Please fill in all required fields.');
+    return;
+  }
+
+  const submitBtn = elements.authSubmitBtn;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Processing...';
+
+  try {
+    if (!isLogIn) {
+      // 1. Sign Up (Register)
+      const regRes = await fetch('http://localhost:8000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: fullName,
+          email: email,
+          password: password
+        })
+      });
+
+      const regData = await regRes.json();
+      if (!regRes.ok) {
+        throw new Error(regData.detail || 'Registration failed.');
+      }
+    }
+
+    // 2. Log In
+    const loginRes = await fetch('http://localhost:8000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        password: password
+      })
+    });
+
+    const loginData = await loginRes.json();
+    if (!loginRes.ok) {
+      throw new Error(loginData.detail || 'Login failed.');
+    }
+
+    // Lưu token & user vào state + localStorage
+    state.authToken = loginData.access_token;
+    state.currentUser = loginData.user;
+    localStorage.setItem('authToken', state.authToken);
+    localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+
+    renderAuthUI();
+    closeAllModals();
+    showToast(isLogIn ? `Welcome back, ${state.currentUser.full_name}!` : `Account created! Welcome, ${state.currentUser.full_name}!`);
+
+    // Reset form
+    elements.authForm.reset();
+
+  } catch (error) {
+    console.error('Auth error:', error);
+    showToast(error.message || 'Authentication failed.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = isLogIn ? 'Log in to TicketRush' : 'Create free account';
+  }
 }
 
 // Modal Dismiss

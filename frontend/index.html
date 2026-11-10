@@ -47,7 +47,7 @@
       </div>
 
       <!-- Auth Actions -->
-      <div class="auth-actions">
+      <div class="auth-actions" id="authActions">
         <button type="button" class="btn btn-outline" id="btnSignUp">Sign up</button>
         <button type="button" class="btn btn-primary" id="btnLogIn">Log in</button>
       </div>
@@ -56,6 +56,7 @@
 
   <!-- Main Content -->
   <main class="main-content container">
+    <section id="eventsView">
     <!-- Huge Display Heading -->
     <h1 class="page-title">Events</h1>
 
@@ -127,6 +128,19 @@
         </button>
       </nav>
     </div>
+    </section>
+
+    <section id="purchasedTicketsView" class="purchased-tickets-view" hidden aria-labelledby="ticketsTitle">
+      <div class="tickets-heading">
+        <div>
+          <h1 class="page-title" id="ticketsTitle">My tickets</h1>
+          <p class="tickets-subtitle">Your purchased tickets and booking details.</p>
+        </div>
+        <button type="button" class="btn btn-outline" id="backToEvents">Browse events</button>
+      </div>
+      <p class="tickets-status" id="ticketsStatus" role="status" aria-live="polite"></p>
+      <div class="tickets-list" id="purchasedTicketsList"></div>
+    </section>
   </main>
 
   <!-- Site Footer -->
@@ -197,15 +211,15 @@
             </div>
           </div>
 
-          <!-- Customer Details -->
-          <div class="booking-customer-fields">
-            <div class="form-group">
-              <label for="bookingName" class="form-label">Full Name</label>
-              <input type="text" id="bookingName" class="form-input" placeholder="e.g. John Doe" required>
-            </div>
-            <div class="form-group">
-              <label for="bookingEmail" class="form-label">Email for QR Ticket</label>
-              <input type="email" id="bookingEmail" class="form-input" placeholder="e.g. john@example.com" required>
+          <!-- Customer Details (Tự động hiển thị theo tài khoản đăng nhập) -->
+          <div class="booking-customer-info" id="bookingCustomerInfo">
+            <span class="field-label">Ticket Holder</span>
+            <div class="user-badge-preview">
+              <span class="user-avatar" id="bookingUserAvatar">U</span>
+              <div class="user-details">
+                <strong id="bookingUserName">User Name</strong>
+                <span id="bookingUserEmail">user@example.com</span>
+              </div>
             </div>
           </div>
 
@@ -243,6 +257,10 @@
       </div>
 
       <form class="auth-form" id="authForm" onsubmit="event.preventDefault();">
+        <div class="form-group" id="fullNameGroup" style="display: none;">
+          <label for="authFullName" class="form-label">Full Name</label>
+          <input type="text" id="authFullName" class="form-input" placeholder="e.g. John Doe">
+        </div>
         <div class="form-group">
           <label for="authEmail" class="form-label">Email address</label>
           <input type="email" id="authEmail" class="form-input" placeholder="name@example.com" required>

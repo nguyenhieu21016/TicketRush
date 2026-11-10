@@ -29,8 +29,8 @@ class BookingCreateRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     event_id: int = Field(gt=0)
-    buyer_name: str = Field(min_length=1, max_length=100)
-    buyer_email: EmailStr
+    buyer_name: str | None = Field(default=None, max_length=100)
+    buyer_email: EmailStr | None = None
     quantity: int = Field(ge=1, le=10)
 
 
@@ -49,6 +49,8 @@ class BookingResponse(BaseModel):
     booking_code: str
     event_id: int
     event_name: str
+    event_venue: str
+    event_date: datetime
 
     buyer_name: str
     buyer_email: EmailStr
@@ -62,3 +64,39 @@ class BookingResponse(BaseModel):
     created_at: datetime
 
     tickets: list[TicketResponse]
+
+
+class BookingListResponse(BaseModel):
+    bookings: list[BookingResponse]
+    total: int
+
+
+class UserRegisterRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    full_name: str = Field(min_length=1, max_length=100)
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=100)
+
+
+class UserLoginRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    email: EmailStr
+    password: str = Field(min_length=1)
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: EmailStr
+    full_name: str
+    role: str
+    created_at: datetime
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
