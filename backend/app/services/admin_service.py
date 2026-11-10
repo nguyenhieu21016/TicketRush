@@ -2,7 +2,11 @@
 Business logic cho Admin: quản lý events.
 """
 
+import csv
+import io
+
 from fastapi import HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.models import Event, Booking
@@ -106,4 +110,59 @@ def get_admin_bookings(
         bookings=[AdminBookingResponse.model_validate(b) for b in bookings],
         total=len(bookings),
         event_name=event_name,
+    )
+
+
+
+def export_bookings_csv(db: Session, event_id: int) -> StreamingResponse:
+    """Xuất danh sách booking của event ra file CSV."""
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found."
+        )
+
+    bookings = (
+        db.query(Booking)
+        .filter(Booking.event_id == event_id)
+        .order_by(Booking.created_at.asc())
+        .all()
+    )
+
+    # Tạo CSV trong memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header
+    writer.writerow([
+        "Booking Code", "Buyer Name", "Buyer Email",
+        "Quantity", "Unit Price", "Total Amount", "Currency",
+        "Status", "Booked At"
+    ])
+
+    # Data rows
+    for b in bookings:
+        writer.writerow([
+            b.booking_code,
+            b.buyer_name,
+            b.buyer_email,
+            b.quantity,
+            str(b.unit_price),
+            str(b.total_amount),
+            b.currency,
+            b.status,
+            b.created_at.strftime("%Y-%m-%d %H:%M:%S") if b.created_at else "",
+        ])
+
+    output.seek(0)
+
+    # Tên file an toàn
+    safe_name = event.name.replace(" ", "_").replace("/", "-")
+    filename = f"{safe_name}_bookings.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
