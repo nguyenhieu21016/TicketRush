@@ -43,6 +43,17 @@ function hideError(id) {
   if (el) el.style.display = 'none';
 }
 
+function checkUnauthorized(res) {
+  if (res.status === 401) {
+    alert('Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    window.location.href = 'index.html';
+    return true;
+  }
+  return false;
+}
+
 // ── Populate admin info ──────────────────────────────────────
 const user = getUser();
 if (user) {
@@ -210,6 +221,8 @@ async function submitEventForm(e) {
       });
     }
 
+    if (checkUnauthorized(res)) return;
+
     if (res.ok) {
       closeEventModal();
       loadEvents();
@@ -253,6 +266,7 @@ async function doCancelEvent() {
     const res = await fetch(`${API}/admin/events/${cancellingEventId}/cancel`, {
       method: 'PATCH', headers: authHeaders(),
     });
+    if (checkUnauthorized(res)) return;
     if (res.ok) {
       const data = await res.json();
       closeCancelEventModal();
@@ -297,6 +311,7 @@ async function doDeleteEvent() {
     const res = await fetch(`${API}/admin/events/${deletingEventId}`, {
       method: 'DELETE', headers: authHeaders(),
     });
+    if (checkUnauthorized(res)) return;
     if (res.ok) {
       closeDeleteModal();
       loadEvents();
@@ -342,6 +357,7 @@ async function loadBookings() {
 
   try {
     const res  = await fetch(url, { headers: authHeaders() });
+    if (checkUnauthorized(res)) return;
     if (!res.ok) throw new Error();
     const data = await res.json();
 
@@ -389,6 +405,7 @@ async function exportCSV(eventId) {
     const res = await fetch(`${API}/admin/events/${eventId}/export`, {
       headers: authHeaders(),
     });
+    if (checkUnauthorized(res)) return;
     if (!res.ok) { alert('Không thể xuất CSV.'); return; }
     const blob = await res.blob();
     const filename = res.headers.get('Content-Disposition')

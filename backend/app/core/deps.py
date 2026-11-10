@@ -38,10 +38,14 @@ def get_current_user(
         ) from None
 
     user = db.query(User).filter(User.id == user_id).first()
+    if not user and payload.get("email"):
+        # Fallback to email in case user_id changed after re-seeding
+        user = db.query(User).filter(User.email == payload["email"]).first()
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found."
+            detail="User not found. Please log in again."
         )
 
     return user
