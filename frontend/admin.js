@@ -404,13 +404,21 @@ function renderBookingsTable(bookings, filteredEventId) {
 }
 
 // ── Export CSV ────────────────────────────────────────────────
-async function exportCSV(eventId) {
+async function exportCSV(eventId = null) {
+  const btn = document.getElementById('btnExportAllCSV');
+  const originalText = btn ? btn.textContent : '';
+  if (btn && !eventId) {
+    btn.disabled = true;
+    btn.textContent = 'Đang xuất...';
+  }
+
   try {
-    const res = await apiFetch(`/admin/events/${eventId}/export`);
+    const path = eventId ? `/admin/bookings/export?event_id=${eventId}` : '/admin/bookings/export';
+    const res = await apiFetch(path);
     if (!res.ok) { alert('Không thể xuất CSV.'); return; }
     const blob = await res.blob();
     const filename = res.headers.get('Content-Disposition')
-      ?.match(/filename="(.+)"/)?.[1] || `event_${eventId}_bookings.csv`;
+      ?.match(/filename="(.+)"/)?.[1] || (eventId ? `event_${eventId}_attendees.csv` : 'all_bookings_report.csv');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
@@ -419,8 +427,30 @@ async function exportCSV(eventId) {
     if (err.message !== 'Unauthorized') {
       alert('Lỗi kết nối server.');
     }
+  } finally {
+    if (btn && !eventId) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
   }
 }
+
+// Lắng nghe nút xuất CSV ở trên cùng
+const exportAllBtn = document.getElementById('btnExportAllCSV');
+if (exportAllBtn) {
+  exportAllBtn.addEventListener('click', () => {
+    const selectedEventId = document.getElementById('filterEvent').value;
+    exportCSV(selectedEventId ? parseInt(selectedEventId) : null);
+  });
+}
+
+// Cập nhật nhãn nút xuất theo bộ lọc
+document.getElementById('filterEvent').addEventListener('change', (e) => {
+  const btn = document.getElementById('btnExportAllCSV');
+  if (btn) {
+    btn.textContent = e.target.value ? '⬇️ Xuất CSV sự kiện này' : '⬇️ Xuất tất cả CSV';
+  }
+});
 
 // ── Escape HTML ───────────────────────────────────────────────
 function escHtml(str) {

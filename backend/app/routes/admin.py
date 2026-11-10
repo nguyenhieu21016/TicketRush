@@ -60,6 +60,16 @@ def list_bookings_route(
 
 
 
+@router.get("/bookings/export")
+def export_all_bookings_csv_route(
+    event_id: int | None = None,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Xuất danh sách booking ra CSV (toàn bộ hoặc lọc theo event_id). Chỉ ADMIN."""
+    return export_bookings_csv(db, event_id=event_id)
+
+
 @router.get("/events/{event_id}/export")
 def export_csv_route(
     event_id: int,
@@ -67,7 +77,7 @@ def export_csv_route(
     admin: User = Depends(require_admin),
 ):
     """Xuất danh sách người đăng ký ra CSV. Chỉ ADMIN."""
-    return export_bookings_csv(db, event_id)
+    return export_bookings_csv(db, event_id=event_id)
 
 
 @router.patch("/events/{event_id}/cancel")

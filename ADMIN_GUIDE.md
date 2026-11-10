@@ -80,7 +80,8 @@ python seed_admin.py
 2. **Xem danh sách**: Hiển thị chi tiết từng đơn đặt: Mã booking, tên người mua, email, sự kiện, số lượng vé, tổng tiền, trạng thái (`CONFIRMED` / `CANCELLED`), ngày đặt.
 3. **Lọc theo sự kiện**: Chọn sự kiện tại dropdown để xem danh sách attendees riêng của sự kiện đó.
 4. **Xuất file CSV**:
-   * Nhấn nút **⬇️ CSV** tại từng dòng hoặc trên bảng để tải về file danh sách người đặt vé dạng `.csv` có thể mở trực tiếp bằng Excel.
+   * **Xuất tất cả đơn hàng (Master Report)**: Nhấn nút **⬇️ Xuất tất cả CSV** ở thanh trên cùng (khi chưa lọc) để tải file tổng hợp toàn bộ booking trên sàn (có cột Tên sự kiện). Khi đang chọn lọc sự kiện, nút này sẽ chuyển thành **⬇️ Xuất CSV sự kiện này**.
+   * **Xuất nhanh theo từng dòng**: Nhấn nút **⬇️ CSV** tại từng dòng booking để xuất ngay file danh sách người đặt của riêng sự kiện đó.
 
 ---
 
@@ -95,5 +96,6 @@ Tất cả các endpoint dưới đây đều yêu cầu Header: `Authorization:
 | `DELETE` | `/api/admin/events/{id}` | Xóa sự kiện (chỉ khi chưa có vé bán) |
 | `PATCH` | `/api/admin/events/{id}/cancel` | Hủy sự kiện + tự động hủy tất cả booking liên quan |
 | `GET` | `/api/admin/bookings` | Xem danh sách bookings (hỗ trợ `?event_id={id}`) |
+| `GET` | `/api/admin/bookings/export` | Xuất file CSV toàn bộ bookings hoặc lọc theo `?event_id={id}` |
 | `GET` | `/api/admin/events/{id}/export` | Xuất file CSV danh sách người mua theo sự kiện |
 

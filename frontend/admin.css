@@ -250,8 +250,8 @@
 .tickets-sold { color: #ef4444; font-weight: 600; }
 .tickets-ok   { color: #10b981; }
 
-/* ── Bookings filter ──────────────────────────────────────── */
-.bookings-filter { display: flex; gap: 10px; align-items: center; }
+/* ── Bookings filter & actions ────────────────────────────── */
+.bookings-filter, .bookings-actions { display: flex; gap: 10px; align-items: center; }
 .bookings-meta {
   background: var(--primary-light);
   border-radius: 8px;
