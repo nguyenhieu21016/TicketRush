@@ -1,16 +1,17 @@
 /* ========================================================
-   TicketRush — Admin Panel JS
+   TicketRush — Admin Panel JS (Enterprise Architecture)
    ======================================================== */
 
 const API = 'http://127.0.0.1:8000/api';
 
-// ── Auth Guard ──────────────────────────────────────────────
+// ── Auth Storage ─────────────────────────────────────────────
 function getToken() { return localStorage.getItem('authToken'); }
 function getUser()  {
   try { return JSON.parse(localStorage.getItem('currentUser')); }
   catch { return null; }
 }
 
+// ── Client-Side Auth Guard ───────────────────────────────────
 (function guardAdmin() {
   const token = getToken();
   const user  = getUser();
@@ -20,11 +21,33 @@ function getUser()  {
   }
 })();
 
-// ── Helpers ──────────────────────────────────────────────────
-function authHeaders() {
-  return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` };
+// ── Enterprise HTTP Client (with 401 Interceptor) ────────────
+async function apiFetch(path, options = {}) {
+  const token = getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+
+  const res = await fetch(`${API}${path}`, {
+    ...options,
+    headers,
+  });
+
+  // Interceptor: xử lý tập trung khi phiên đăng nhập hết hạn hoặc không hợp lệ
+  if (res.status === 401) {
+    alert('Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    window.location.href = 'index.html';
+    throw new Error('Unauthorized');
+  }
+
+  return res;
 }
 
+// ── Helpers ──────────────────────────────────────────────────
 function formatDate(str) {
   if (!str) return '—';
   return new Date(str).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
@@ -41,17 +64,6 @@ function showError(id, msg) {
 function hideError(id) {
   const el = document.getElementById(id);
   if (el) el.style.display = 'none';
-}
-
-function checkUnauthorized(res) {
-  if (res.status === 401) {
-    alert('Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('currentUser');
-    window.location.href = 'index.html';
-    return true;
-  }
-  return false;
 }
 
 // ── Populate admin info ──────────────────────────────────────
@@ -92,16 +104,18 @@ document.querySelectorAll('.nav-item').forEach(item => {
 // ════════════════════════════════════════════════════════════
 async function loadEvents() {
   const tbody = document.getElementById('eventsTableBody');
-  tbody.innerHTML = '<tr><td colspan="7" class="table-loading">Đang tải...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Đang tải...</td></tr>';
 
   try {
-    const res = await fetch(`${API}/events/`);
+    const res = await apiFetch('/events/');
     const data = await res.json();
     eventsCache = data.events || [];
     renderEventsTable(eventsCache);
     populateEventFilter(eventsCache);
-  } catch {
-    tbody.innerHTML = '<tr><td colspan="7" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
+    }
   }
 }
 
@@ -176,7 +190,6 @@ function openEditEvent(id) {
   document.getElementById('f-price').value         = ev.price;
   document.getElementById('f-total-tickets').value = ev.total_tickets;
   document.getElementById('f-image-url').value     = ev.image_url || '';
-  // Format for datetime-local: "YYYY-MM-DDTHH:MM"
   const d = new Date(ev.event_date);
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
     .toISOString().slice(0, 16);
@@ -210,18 +223,9 @@ async function submitEventForm(e) {
   };
 
   try {
-    let res;
-    if (editingEventId) {
-      res = await fetch(`${API}/admin/events/${editingEventId}`, {
-        method: 'PUT', headers: authHeaders(), body: JSON.stringify(body),
-      });
-    } else {
-      res = await fetch(`${API}/admin/events`, {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
-      });
-    }
-
-    if (checkUnauthorized(res)) return;
+    const res = editingEventId
+      ? await apiFetch(`/admin/events/${editingEventId}`, { method: 'PUT', body: JSON.stringify(body) })
+      : await apiFetch('/admin/events', { method: 'POST', body: JSON.stringify(body) });
 
     if (res.ok) {
       closeEventModal();
@@ -230,8 +234,10 @@ async function submitEventForm(e) {
       const err = await res.json();
       showError('eventFormError', err.detail || 'Có lỗi xảy ra.');
     }
-  } catch {
-    showError('eventFormError', 'Không thể kết nối server.');
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      showError('eventFormError', 'Không thể kết nối server.');
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = editingEventId ? 'Lưu thay đổi' : 'Tạo sự kiện';
@@ -263,10 +269,7 @@ async function doCancelEvent() {
   hideError('cancelEventModalError');
 
   try {
-    const res = await fetch(`${API}/admin/events/${cancellingEventId}/cancel`, {
-      method: 'PATCH', headers: authHeaders(),
-    });
-    if (checkUnauthorized(res)) return;
+    const res = await apiFetch(`/admin/events/${cancellingEventId}/cancel`, { method: 'PATCH' });
     if (res.ok) {
       const data = await res.json();
       closeCancelEventModal();
@@ -276,8 +279,10 @@ async function doCancelEvent() {
       const err = await res.json();
       showError('cancelEventModalError', err.detail || 'Không thể hủy sự kiện.');
     }
-  } catch {
-    showError('cancelEventModalError', 'Không thể kết nối server.');
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      showError('cancelEventModalError', 'Không thể kết nối server.');
+    }
   } finally {
     btn.disabled = false; btn.textContent = 'Hủy sự kiện';
   }
@@ -308,10 +313,7 @@ async function doDeleteEvent() {
   hideError('deleteModalError');
 
   try {
-    const res = await fetch(`${API}/admin/events/${deletingEventId}`, {
-      method: 'DELETE', headers: authHeaders(),
-    });
-    if (checkUnauthorized(res)) return;
+    const res = await apiFetch(`/admin/events/${deletingEventId}`, { method: 'DELETE' });
     if (res.ok) {
       closeDeleteModal();
       loadEvents();
@@ -319,8 +321,10 @@ async function doDeleteEvent() {
       const err = await res.json();
       showError('deleteModalError', err.detail || 'Không thể xóa.');
     }
-  } catch {
-    showError('deleteModalError', 'Không thể kết nối server.');
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      showError('deleteModalError', 'Không thể kết nối server.');
+    }
   } finally {
     btn.disabled = false; btn.textContent = 'Xóa';
   }
@@ -329,11 +333,10 @@ async function doDeleteEvent() {
 // ════════════════════════════════════════════════════════════
 // BOOKINGS TAB
 // ════════════════════════════════════════════════════════════
-let bookingsEventMap = {};   // { event_id: event_name }
+let bookingsEventMap = {};
 
 function populateEventFilter(events) {
   const sel = document.getElementById('filterEvent');
-  // Keep first "All" option
   sel.innerHTML = '<option value="">Tất cả sự kiện</option>';
   events.forEach(ev => {
     const opt = document.createElement('option');
@@ -353,11 +356,10 @@ async function loadBookings() {
   meta.style.display = 'none';
 
   const eventId = document.getElementById('filterEvent').value;
-  const url = eventId ? `${API}/admin/bookings?event_id=${eventId}` : `${API}/admin/bookings`;
+  const path = eventId ? `/admin/bookings?event_id=${eventId}` : '/admin/bookings';
 
   try {
-    const res  = await fetch(url, { headers: authHeaders() });
-    if (checkUnauthorized(res)) return;
+    const res = await apiFetch(path);
     if (!res.ok) throw new Error();
     const data = await res.json();
 
@@ -367,8 +369,10 @@ async function loadBookings() {
     }
 
     renderBookingsTable(data.bookings, eventId);
-  } catch {
-    tbody.innerHTML = '<tr><td colspan="9" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      tbody.innerHTML = '<tr><td colspan="9" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
+    }
   }
 }
 
@@ -402,10 +406,7 @@ function renderBookingsTable(bookings, filteredEventId) {
 // ── Export CSV ────────────────────────────────────────────────
 async function exportCSV(eventId) {
   try {
-    const res = await fetch(`${API}/admin/events/${eventId}/export`, {
-      headers: authHeaders(),
-    });
-    if (checkUnauthorized(res)) return;
+    const res = await apiFetch(`/admin/events/${eventId}/export`);
     if (!res.ok) { alert('Không thể xuất CSV.'); return; }
     const blob = await res.blob();
     const filename = res.headers.get('Content-Disposition')
@@ -414,8 +415,10 @@ async function exportCSV(eventId) {
     const a = document.createElement('a');
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
-  } catch {
-    alert('Lỗi kết nối server.');
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      alert('Lỗi kết nối server.');
+    }
   }
 }
 
@@ -428,4 +431,3 @@ function escHtml(str) {
 
 // ── Init ──────────────────────────────────────────────────────
 loadEvents();
-
