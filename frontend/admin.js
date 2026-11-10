@@ -143,7 +143,7 @@ function openCreateEvent() {
   document.getElementById('f-price').value     = '0';
   document.getElementById('f-total-tickets').value = '300';
   hideError('eventFormError');
-  document.getElementById('eventModal').style.display = '';
+  document.getElementById('eventModal').classList.add('open');
 }
 
 function openEditEvent(id) {
@@ -166,11 +166,11 @@ function openEditEvent(id) {
     .toISOString().slice(0, 16);
   document.getElementById('f-event-date').value = local;
   hideError('eventFormError');
-  document.getElementById('eventModal').style.display = '';
+  document.getElementById('eventModal').classList.add('open');
 }
 
 function closeEventModal() {
-  document.getElementById('eventModal').style.display = 'none';
+  document.getElementById('eventModal').classList.remove('open');
 }
 
 async function submitEventForm(e) {
@@ -232,10 +232,10 @@ function openDeleteEvent(id, name) {
   document.getElementById('deleteModalMsg').textContent =
     `Bạn có chắc muốn xóa sự kiện "${name}"? Hành động này không thể hoàn tác.`;
   hideError('deleteModalError');
-  document.getElementById('deleteModal').style.display = '';
+  document.getElementById('deleteModal').classList.add('open');
 }
 function closeDeleteModal() {
-  document.getElementById('deleteModal').style.display = 'none';
+  document.getElementById('deleteModal').classList.remove('open');
 }
 
 async function doDeleteEvent() {
@@ -362,3 +362,4 @@ function escHtml(str) {
 
 // ── Init ──────────────────────────────────────────────────────
 loadEvents();
+
