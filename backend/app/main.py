@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.events import router as events_router
 from app.routes.bookings import router as bookings_router
 from app.routes.auth import router as auth_router
+from app.routes.admin import router as admin_router
 
 app = FastAPI()
 
@@ -23,3 +24,4 @@ app.add_middleware(
 app.include_router(events_router)
 app.include_router(bookings_router)
 app.include_router(auth_router)
+app.include_router(admin_router)

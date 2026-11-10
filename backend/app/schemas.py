@@ -100,3 +100,34 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+# ─── Admin Schemas ───────────────────────────────────────────────
+
+
+class EventCreateRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    category: str = Field(default="Music", max_length=100)
+    venue: str = Field(default="London, UK", max_length=255)
+    image_url: str | None = Field(default=None, max_length=500)
+    total_tickets: int = Field(gt=0, default=300)
+    price: Decimal = Field(ge=0, default=Decimal("0.00"))
+    currency: str = Field(default="£", max_length=10)
+    event_date: datetime
+
+
+class EventUpdateRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    category: str | None = Field(default=None, max_length=100)
+    venue: str | None = Field(default=None, max_length=255)
+    image_url: str | None = Field(default=None, max_length=500)
+    total_tickets: int | None = Field(default=None, gt=0)
+    price: Decimal | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, max_length=10)
+    event_date: datetime | None = None
