@@ -18,6 +18,7 @@ class EventResponse(BaseModel):
     price: Decimal
     currency: str
     event_date: datetime
+    status: str = "ACTIVE"
 
 
 class EventListResponse(BaseModel):
@@ -51,6 +52,7 @@ class BookingResponse(BaseModel):
     event_name: str
     event_venue: str
     event_date: datetime
+    status: str = "ACTIVE"
 
     buyer_name: str
     buyer_email: EmailStr
@@ -117,6 +119,7 @@ class EventCreateRequest(BaseModel):
     price: Decimal = Field(ge=0, default=Decimal("0.00"))
     currency: str = Field(default="£", max_length=10)
     event_date: datetime
+    # status không expose qua create — mặc định ACTIVE
 
 
 class EventUpdateRequest(BaseModel):
