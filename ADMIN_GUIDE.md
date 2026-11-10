@@ -96,3 +96,4 @@ Tất cả các endpoint dưới đây đều yêu cầu Header: `Authorization:
 | `PATCH` | `/api/admin/events/{id}/cancel` | Hủy sự kiện + tự động hủy tất cả booking liên quan |
 | `GET` | `/api/admin/bookings` | Xem danh sách bookings (hỗ trợ `?event_id={id}`) |
 | `GET` | `/api/admin/events/{id}/export` | Xuất file CSV danh sách người mua theo sự kiện |
+

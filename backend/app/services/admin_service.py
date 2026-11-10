@@ -4,6 +4,7 @@ Business logic cho Admin: quản lý events.
 
 import csv
 import io
+from urllib.parse import quote
 
 from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -167,8 +168,9 @@ def export_bookings_csv(db: Session, event_id: int) -> StreamingResponse:
         .all()
     )
 
-    # Tạo CSV trong memory
+    # Tạo CSV trong memory với UTF-8 BOM cho Excel
     output = io.StringIO()
+    output.write("\ufeff")
     writer = csv.writer(output)
 
     # Header
@@ -194,12 +196,14 @@ def export_bookings_csv(db: Session, event_id: int) -> StreamingResponse:
 
     output.seek(0)
 
-    # Tên file an toàn
-    safe_name = event.name.replace(" ", "_").replace("/", "-")
-    filename = f"{safe_name}_bookings.csv"
+    # Tên file an toàn theo chuẩn RFC 5987 (hỗ trợ Unicode tiếng Việt)
+    ascii_fallback = f"event_{event.id}_bookings.csv"
+    encoded_filename = quote(f"{event.name}_bookings.csv")
 
     return StreamingResponse(
         iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{encoded_filename}'
+        },
     )

@@ -33,11 +33,18 @@ def create_booking(
                 detail="Event not found"
             )
 
+        if event.status == "CANCELLED":
+            raise HTTPException(
+                status_code=400,
+                detail="This event has been cancelled and tickets cannot be booked"
+            )
+
         # 2. Atomically decrease available tickets
         result = db.execute(
             update(Event)
             .where(
                 Event.id == booking_data.event_id,
+                Event.status == "ACTIVE",
                 Event.available_tickets >= booking_data.quantity
             )
             .values(
