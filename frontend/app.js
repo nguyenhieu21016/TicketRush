@@ -592,6 +592,7 @@ function renderAuthUI() {
         <span>Hi, <strong>${displayName}</strong></span>
       </div>
       <button type="button" class="btn btn-outline" id="btnMyTickets">My tickets</button>
+      ${state.currentUser.role === 'ADMIN' ? '<a href="admin.html" class="btn btn-outline" id="btnAdmin">⚙️ Admin</a>' : ''}
       <button class="btn btn-outline btn-logout" id="btnLogout">Log out</button>
     `;
 
