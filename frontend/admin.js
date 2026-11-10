@@ -97,7 +97,7 @@ async function loadEvents() {
 function renderEventsTable(events) {
   const tbody = document.getElementById('eventsTableBody');
   if (!events.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="table-loading">Chưa có sự kiện nào.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Chưa có sự kiện nào.</td></tr>';
     return;
   }
   tbody.innerHTML = events.map(ev => {
@@ -105,8 +105,17 @@ function renderEventsTable(events) {
     const pct  = ev.total_tickets ? (sold / ev.total_tickets * 100).toFixed(0) : 0;
     const avClass = ev.available_tickets === 0 ? 'tickets-sold'
                   : ev.available_tickets < 50  ? 'tickets-low' : 'tickets-ok';
+    const isCancelled = ev.status === 'CANCELLED';
+    const statusBadge = isCancelled
+      ? '<span class="badge badge-cancelled">HỦY</span>'
+      : '<span class="badge badge-confirmed">ACTIVE</span>';
+    const actionBtns = isCancelled
+      ? '<span style="color:var(--text-light);font-size:12px">Đã hủy</span>'
+      : `<button class="btn-action btn-edit" onclick="openEditEvent(${ev.id})">✏️ Sửa</button>
+         <button class="btn-action btn-cancel-ev" onclick="openCancelEvent(${ev.id},'${escHtml(ev.name)}')">🚫 Hủy</button>
+         <button class="btn-action btn-delete" onclick="openDeleteEvent(${ev.id},'${escHtml(ev.name)}')">🗑️ Xóa</button>`;
     return `
-      <tr>
+      <tr ${isCancelled ? 'style="opacity:0.6"' : ''}>
         <td><span style="color:var(--text-muted)">#${ev.id}</span></td>
         <td><strong>${escHtml(ev.name)}</strong><br>
             <small style="color:var(--text-muted)">${escHtml(ev.category)}</small></td>
@@ -115,12 +124,8 @@ function renderEventsTable(events) {
         <td>${formatMoney(ev.price, ev.currency)}</td>
         <td class="${avClass}">${ev.available_tickets}/${ev.total_tickets}
             <small>(${pct}% sold)</small></td>
-        <td>
-          <div class="action-cell">
-            <button class="btn-action btn-edit" onclick="openEditEvent(${ev.id})">✏️ Sửa</button>
-            <button class="btn-action btn-delete" onclick="openDeleteEvent(${ev.id},'${escHtml(ev.name)}')">🗑️ Xóa</button>
-          </div>
-        </td>
+        <td>${statusBadge}</td>
+        <td><div class="action-cell">${actionBtns}</div></td>
       </tr>`;
   }).join('');
 }
@@ -217,6 +222,50 @@ async function submitEventForm(e) {
   } finally {
     btn.disabled = false;
     btn.textContent = editingEventId ? 'Lưu thay đổi' : 'Tạo sự kiện';
+  }
+}
+
+// ── Cancel Event Modal ───────────────────────────────────────
+let cancellingEventId = null;
+
+document.getElementById('closeCancelEventModal').addEventListener('click', closeCancelEventModal);
+document.getElementById('cancelCancelEvent').addEventListener('click', closeCancelEventModal);
+document.getElementById('confirmCancelEvent').addEventListener('click', doCancelEvent);
+
+function openCancelEvent(id, name) {
+  cancellingEventId = id;
+  document.getElementById('cancelEventModalMsg').textContent =
+    `Bạn có chắc muốn HỦY sự kiện "${name}"?`;
+  hideError('cancelEventModalError');
+  document.getElementById('cancelEventModal').classList.add('open');
+}
+function closeCancelEventModal() {
+  document.getElementById('cancelEventModal').classList.remove('open');
+}
+
+async function doCancelEvent() {
+  if (!cancellingEventId) return;
+  const btn = document.getElementById('confirmCancelEvent');
+  btn.disabled = true; btn.textContent = 'Đang hủy...';
+  hideError('cancelEventModalError');
+
+  try {
+    const res = await fetch(`${API}/admin/events/${cancellingEventId}/cancel`, {
+      method: 'PATCH', headers: authHeaders(),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      closeCancelEventModal();
+      loadEvents();
+      alert(`✅ ${data.message}\n📋 Đã hủy ${data.cancelled_bookings} booking.`);
+    } else {
+      const err = await res.json();
+      showError('cancelEventModalError', err.detail || 'Không thể hủy sự kiện.');
+    }
+  } catch {
+    showError('cancelEventModalError', 'Không thể kết nối server.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Hủy sự kiện';
   }
 }
 
