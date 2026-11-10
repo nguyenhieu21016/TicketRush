@@ -25,6 +25,7 @@ CREATE TABLE events (
   price DECIMAL(10, 2) NOT NULL DEFAULT 0.00 COMMENT 'Giá vé (ví dụ: 45.00)',
   currency VARCHAR(10) NOT NULL DEFAULT (CONVERT(0xC2A3 USING utf8mb4)) COMMENT 'Đơn vị tiền tệ',
   event_date DATETIME NOT NULL COMMENT 'Ngày giờ diễn ra sự kiện',
+  status ENUM('ACTIVE', 'CANCELLED') NOT NULL DEFAULT 'ACTIVE' COMMENT 'Trạng thái sự kiện',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm tạo sự kiện',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
