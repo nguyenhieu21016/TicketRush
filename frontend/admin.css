@@ -220,6 +220,14 @@
 }
 .btn-export:hover { background: rgba(16,185,129,0.15); }
 
+.btn-email-ticket {
+  background: rgba(59,130,246,0.08);
+  color: #3b82f6;
+  border-color: rgba(59,130,246,0.2);
+}
+.btn-email-ticket:hover { background: rgba(59,130,246,0.15); }
+.btn-action:disabled { opacity: 0.6; cursor: wait; }
+
 .btn-danger {
   background: #ef4444;
   color: #fff;
@@ -351,4 +359,3 @@
   .admin-main { margin-left: 0; }
   .sidebar-nav { flex-direction: row; }
 }
-

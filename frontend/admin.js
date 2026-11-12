@@ -352,7 +352,7 @@ document.getElementById('filterEvent').addEventListener('change', loadBookings);
 async function loadBookings() {
   const tbody = document.getElementById('bookingsTableBody');
   const meta  = document.getElementById('bookingsMeta');
-  tbody.innerHTML = '<tr><td colspan="9" class="table-loading">Đang tải...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Đang tải...</td></tr>';
   meta.style.display = 'none';
 
   const eventId = document.getElementById('filterEvent').value;
@@ -371,7 +371,7 @@ async function loadBookings() {
     renderBookingsTable(data.bookings, eventId);
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      tbody.innerHTML = '<tr><td colspan="9" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
     }
   }
 }
@@ -379,7 +379,7 @@ async function loadBookings() {
 function renderBookingsTable(bookings, filteredEventId) {
   const tbody = document.getElementById('bookingsTableBody');
   if (!bookings.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="table-loading">Chưa có booking nào.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Chưa có booking nào.</td></tr>';
     return;
   }
   tbody.innerHTML = bookings.map(b => {
@@ -388,6 +388,9 @@ function renderBookingsTable(bookings, filteredEventId) {
     const exportBtn  = filteredEventId
       ? `<button class="btn-action btn-export" onclick="exportCSV(${b.event_id})">⬇️ CSV</button>`
       : `<button class="btn-action btn-export" onclick="exportCSV(${b.event_id})">⬇️ CSV</button>`;
+    const emailBtn = b.status === 'CONFIRMED'
+      ? `<button class="btn-action btn-email-ticket" onclick="sendTicketEmail(${b.id}, this)">📧 Gửi QR</button>`
+      : '<span style="color:var(--text-light);font-size:12px">Không khả dụng</span>';
     return `
       <tr>
         <td><code style="font-size:11px">${escHtml(b.booking_code)}</code></td>
@@ -399,8 +402,32 @@ function renderBookingsTable(bookings, filteredEventId) {
         <td><span class="badge ${badgeClass}">${b.status}</span></td>
         <td>${formatDate(b.created_at)}</td>
         <td>${exportBtn}</td>
+        <td>${emailBtn}</td>
       </tr>`;
   }).join('');
+}
+
+async function sendTicketEmail(bookingId, button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Đang gửi...';
+
+  try {
+    const res = await apiFetch(`/admin/bookings/${bookingId}/send-tickets`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.detail || 'Không thể gửi vé QR.');
+      return;
+    }
+    alert(`Đã gửi ${data.tickets_sent} vé QR tới ${data.recipient}.`);
+  } catch (err) {
+    if (err.message !== 'Unauthorized') {
+      alert('Lỗi kết nối server khi gửi vé QR.');
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 }
 
 // ── Export CSV ────────────────────────────────────────────────

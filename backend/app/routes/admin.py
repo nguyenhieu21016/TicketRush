@@ -10,6 +10,7 @@ from app.core.deps import require_admin
 from app.models import User
 from app.schemas import EventCreateRequest, EventUpdateRequest, EventResponse, AdminBookingListResponse
 from app.services.admin_service import create_event, update_event, delete_event, get_admin_bookings, export_bookings_csv, cancel_event
+from app.services.ticket_email_service import send_booking_tickets
 
 
 router = APIRouter(
@@ -57,6 +58,16 @@ def list_bookings_route(
 ):
     """Xem danh sách bookings. Lọc theo event_id nếu có. Chỉ ADMIN."""
     return get_admin_bookings(db, event_id=event_id)
+
+
+@router.post("/bookings/{booking_id}/send-tickets")
+def send_booking_tickets_route(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Gửi email chứa mã QR cho từng vé trong booking CONFIRMED. Chỉ ADMIN."""
+    return send_booking_tickets(db, booking_id)
 
 
 

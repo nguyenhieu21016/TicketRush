@@ -286,7 +286,7 @@ function bindEvents() {
       closeAllModals();
 
       showToast(
-        `Booking confirmed! Code: ${result.booking_code}`
+        `Booking confirmed! Code: ${result.booking_code}. QR tickets will be emailed to ${result.buyer_email}.`
       );
 
       // Refresh events from Backend

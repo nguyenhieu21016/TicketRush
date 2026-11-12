@@ -82,6 +82,12 @@ python seed_admin.py
 4. **Xuất file CSV**:
    * **Xuất tất cả đơn hàng (Master Report)**: Nhấn nút **⬇️ Xuất tất cả CSV** ở thanh trên cùng (khi chưa lọc) để tải file tổng hợp toàn bộ booking trên sàn (có cột Tên sự kiện). Khi đang chọn lọc sự kiện, nút này sẽ chuyển thành **⬇️ Xuất CSV sự kiện này**.
    * **Xuất nhanh theo từng dòng**: Nhấn nút **⬇️ CSV** tại từng dòng booking để xuất ngay file danh sách người đặt của riêng sự kiện đó.
+5. **Gửi vé QR qua email**:
+   * Sau khi booking được xác nhận thành công, hệ thống tự động gửi email đến địa chỉ người mua, đính kèm một ảnh PNG QR riêng cho từng vé; mỗi QR chứa mã vé duy nhất.
+   * Tại booking `CONFIRMED`, admin vẫn có thể nhấn **📧 Gửi QR** để gửi lại email nếu cần.
+   * Booking đã hủy không thể gửi vé. Có thể nhấn nút gửi lại nếu cần gửi lại email.
+   * Cấu hình `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL` trong `backend/.env`. Mặc định dùng STARTTLS (thường là cổng 587); dùng `SMTP_USE_SSL=true` và `SMTP_USE_TLS=false` cho SMTP SSL (thường là cổng 465).
+   * Nếu gửi tự động thất bại, lỗi được ghi vào log backend; admin có thể dùng nút gửi QR để thử gửi lại.
 
 ---
 
@@ -96,6 +102,6 @@ Tất cả các endpoint dưới đây đều yêu cầu Header: `Authorization:
 | `DELETE` | `/api/admin/events/{id}` | Xóa sự kiện (chỉ khi chưa có vé bán) |
 | `PATCH` | `/api/admin/events/{id}/cancel` | Hủy sự kiện + tự động hủy tất cả booking liên quan |
 | `GET` | `/api/admin/bookings` | Xem danh sách bookings (hỗ trợ `?event_id={id}`) |
+| `POST` | `/api/admin/bookings/{id}/send-tickets` | Gửi email đính kèm QR cho các vé đã xác nhận trong booking |
 | `GET` | `/api/admin/bookings/export` | Xuất file CSV toàn bộ bookings hoặc lọc theo `?event_id={id}` |
 | `GET` | `/api/admin/events/{id}/export` | Xuất file CSV danh sách người mua theo sự kiện |
-
