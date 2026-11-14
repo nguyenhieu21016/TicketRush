@@ -1,209 +1,239 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TicketRush Admin</title>
+  <title>TicketRush — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="admin.css" />
 </head>
-<body class="admin-body">
+<body>
 
-  <!-- Sidebar -->
-  <aside class="admin-sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <span class="sidebar-logo">🎟️</span>
-      <span class="sidebar-title">TicketRush</span>
-      <span class="sidebar-badge">Admin</span>
-    </div>
-
-    <nav class="sidebar-nav">
-      <a class="nav-item active" data-tab="events" href="#">
-        <span class="nav-icon">📅</span> Sự kiện
-      </a>
-      <a class="nav-item" data-tab="bookings" href="#">
-        <span class="nav-icon">🎫</span> Bookings
-      </a>
-    </nav>
-
-    <div class="sidebar-footer">
-      <div class="admin-info">
-        <span class="admin-avatar">👤</span>
-        <div>
-          <div class="admin-name" id="adminName">Admin</div>
-          <div class="admin-email" id="adminEmail">admin@ticketrush.com</div>
+  <!-- Header / Navigation -->
+  <header class="site-header">
+    <div class="header-inner container">
+      <a href="index.html" class="brand-logo" aria-label="TicketRush Home">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="24" height="24" rx="6" fill="#F04D28" />
+            <path
+              d="M7 6C5.89543 6 5 6.89543 5 8V9.5C6.10457 9.5 7 10.3954 7 11.5C7 12.6046 6.10457 13.5 5 13.5V16C5 17.1046 5.89543 18 7 18H17C18.1046 18 19 17.1046 19 16V13.5C17.8954 13.5 17 12.6046 17 11.5C17 10.3954 17.8954 9.5 19 9.5V8C19 6.89543 18.1046 6 17 6H7Z"
+              fill="white" fill-rule="evenodd" clip-rule="evenodd" />
+            <path d="M12 8.5V9.5M12 11.5V12.5M12 14.5V15.5" stroke="#F04D28" stroke-width="1.5"
+              stroke-linecap="round" />
+          </svg>
         </div>
+        <span class="brand-name">TicketRush</span>
+      </a>
+
+      <div class="auth-actions">
+        <div class="user-greeting">
+          <span class="user-avatar" id="adminAvatar">A</span>
+          <span>Hi, <strong id="adminName">Admin</strong></span>
+        </div>
+        <a href="index.html" class="btn btn-outline">Browse events</a>
+        <a href="index.html#my-tickets" class="btn btn-outline">My tickets</a>
+        <button type="button" class="btn btn-outline btn-logout" id="logoutBtn">Log out</button>
       </div>
-      <button class="btn-logout" id="logoutBtn">Đăng xuất</button>
     </div>
-  </aside>
+  </header>
 
   <!-- Main Content -->
-  <main class="admin-main">
+  <main class="main-content container">
+    <div class="admin-page-header">
+      <h1 class="page-title">Dashboard</h1>
+      <p class="admin-subtitle">Manage events, ticket inventory, and customer bookings.</p>
+    </div>
 
-    <!-- ── Tab: Events ───────────────────────────────────────── -->
-    <section class="admin-tab active" id="tab-events">
-      <div class="admin-tab-header">
-        <h1>Quản lý Sự kiện</h1>
-        <button class="btn btn-primary" id="btnNewEvent">+ Tạo sự kiện</button>
+    <div class="admin-toolbar">
+      <div class="admin-tabs" role="tablist" aria-label="Dashboard sections">
+        <button type="button" class="nav-item active" data-tab="events" role="tab" aria-selected="true">
+          Events <span class="counter-badge" id="eventsCount">0</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="bookings" role="tab" aria-selected="false">
+          Bookings <span class="counter-badge" id="bookingsCount">0</span>
+        </button>
       </div>
 
+      <div class="admin-toolbar-actions">
+        <div id="eventsActions">
+          <button type="button" class="btn btn-primary" id="btnNewEvent">Create event</button>
+        </div>
+        <div id="bookingsActions" class="bookings-actions" style="display: none;">
+          <select id="filterEvent" class="form-select" aria-label="Filter bookings by event">
+            <option value="">All events</option>
+          </select>
+          <button type="button" class="btn btn-outline" id="btnExportAllCSV">Export all CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Events -->
+    <section class="admin-tab active" id="tab-events" role="tabpanel">
       <div class="admin-table-wrap">
         <table class="admin-table" id="eventsTable">
           <thead>
             <tr>
               <th>ID</th>
-              <th>Tên sự kiện</th>
-              <th>Ngày diễn ra</th>
-              <th>Địa điểm</th>
-              <th>Giá</th>
-              <th>Vé còn</th>
-              <th>Trạng thái</th>
-              <th>Thao tác</th>
+              <th>Event</th>
+              <th>Date &amp; Time</th>
+              <th>Venue</th>
+              <th>Base Price</th>
+              <th>Availability</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="eventsTableBody">
-            <tr><td colspan="8" class="table-loading">Đang tải...</td></tr>
+            <tr><td colspan="8" class="table-loading">Loading events...</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- ── Tab: Bookings ─────────────────────────────────────── -->
-    <section class="admin-tab" id="tab-bookings">
-      <div class="admin-tab-header">
-        <h1>Quản lý Bookings</h1>
-        <div class="bookings-actions">
-          <select id="filterEvent" class="form-select">
-            <option value="">Tất cả sự kiện</option>
-          </select>
-          <button type="button" class="btn btn-outline" id="btnExportAllCSV">⬇️ Xuất tất cả CSV</button>
-        </div>
-      </div>
-
-      <div id="bookingsMeta" class="bookings-meta" style="display:none"></div>
+    <!-- Tab: Bookings -->
+    <section class="admin-tab" id="tab-bookings" role="tabpanel">
+      <div id="bookingsMeta" class="bookings-meta" style="display: none;"></div>
 
       <div class="admin-table-wrap">
         <table class="admin-table" id="bookingsTable">
           <thead>
             <tr>
-              <th>Booking Code</th>
-              <th>Người đặt</th>
+              <th>Booking Ref</th>
+              <th>Customer</th>
               <th>Email</th>
-              <th>Sự kiện</th>
-              <th>Số vé</th>
-              <th>Tổng tiền</th>
-              <th>Trạng thái</th>
-              <th>Ngày đặt</th>
+              <th>Event</th>
+              <th>Tickets</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Booked At</th>
               <th>Export</th>
-              <th>Vé QR</th>
+              <th>QR Ticket</th>
             </tr>
           </thead>
           <tbody id="bookingsTableBody">
-            <tr><td colspan="10" class="table-loading">Đang tải...</td></tr>
+            <tr><td colspan="10" class="table-loading">Loading bookings...</td></tr>
           </tbody>
         </table>
       </div>
     </section>
-
   </main>
 
-  <!-- ── Modal: Tạo / Sửa Event ──────────────────────────────── -->
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="footer-inner container">
+      <div class="footer-links">
+        <a href="#help" class="footer-link">Need a hand?</a>
+        <a href="#terms" class="footer-link">Terms</a>
+        <a href="#privacy" class="footer-link">Privacy</a>
+        <span class="footer-copy">© 2026 TicketRush</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal: Create / Edit Event -->
   <div class="modal-overlay" id="eventModal">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
       <div class="modal-header">
-        <h2 id="eventModalTitle">Tạo sự kiện mới</h2>
-        <button class="modal-close" id="closeEventModal">&times;</button>
+        <h2 id="eventModalTitle">Create new event</h2>
+        <button type="button" class="modal-close" id="closeEventModal" aria-label="Close dialog">✕</button>
       </div>
       <div class="modal-body">
         <form id="eventForm" autocomplete="off">
           <input type="hidden" id="editEventId" value="" />
 
           <div class="form-group">
-            <label>Tên sự kiện *</label>
-            <input type="text" id="f-name" class="form-input" required placeholder="VD: Jungle Concert" />
+            <label for="f-name">Event Name <span class="required-mark">*</span></label>
+            <input type="text" id="f-name" class="form-input" required placeholder="e.g. Jungle Concert" />
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Thể loại</label>
+              <label for="f-category">Category</label>
               <input type="text" id="f-category" class="form-input" placeholder="Music" value="Music" />
             </div>
             <div class="form-group">
-              <label>Ngày giờ diễn ra *</label>
+              <label for="f-event-date">Date &amp; Time <span class="required-mark">*</span></label>
               <input type="datetime-local" id="f-event-date" class="form-input" required />
             </div>
           </div>
           <div class="form-group">
-            <label>Địa điểm *</label>
-            <input type="text" id="f-venue" class="form-input" required placeholder="VD: Alexandra Palace, London" />
+            <label for="f-venue">Venue <span class="required-mark">*</span></label>
+            <input type="text" id="f-venue" class="form-input" required placeholder="e.g. Alexandra Palace, London" />
           </div>
           <div class="form-group">
-            <label>Mô tả</label>
-            <textarea id="f-description" class="form-input form-textarea" rows="3" placeholder="Mô tả chi tiết sự kiện..."></textarea>
+            <label for="f-description">Description</label>
+            <textarea id="f-description" class="form-input form-textarea" rows="3" placeholder="Event details..."></textarea>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Giá vé (£)</label>
+              <label for="f-price">Base Price (£)</label>
               <input type="number" id="f-price" class="form-input" min="0" step="0.01" value="0" />
             </div>
             <div class="form-group">
-              <label>Tổng số vé *</label>
+              <label for="f-total-tickets">Total Tickets <span class="required-mark">*</span></label>
               <input type="number" id="f-total-tickets" class="form-input" min="1" value="300" required />
             </div>
           </div>
           <div class="form-group">
-            <label>URL ảnh bìa</label>
+            <label for="f-image-url">Cover Image URL</label>
             <input type="url" id="f-image-url" class="form-input" placeholder="https://..." />
           </div>
 
-          <div id="eventFormError" class="form-error" style="display:none"></div>
+          <div id="eventFormError" class="form-error" style="display: none;"></div>
 
           <div class="form-actions">
-            <button type="button" class="btn btn-secondary" id="cancelEventForm">Hủy</button>
-            <button type="submit" class="btn btn-primary" id="submitEventBtn">Tạo sự kiện</button>
+            <button type="button" class="btn btn-outline" id="cancelEventForm">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="submitEventBtn">Create event</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- ── Modal: Confirm hủy Event ─────────────────────────────── -->
+  <!-- Modal: Confirm Cancel Event -->
   <div class="modal-overlay" id="cancelEventModal">
-    <div class="modal modal-sm">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="cancelEventModalTitle">
       <div class="modal-header">
-        <h2>🚫 Hủy sự kiện</h2>
-        <button class="modal-close" id="closeCancelEventModal">&times;</button>
+        <h2 id="cancelEventModalTitle">Cancel event</h2>
+        <button type="button" class="modal-close" id="closeCancelEventModal" aria-label="Close dialog">✕</button>
       </div>
       <div class="modal-body">
-        <p id="cancelEventModalMsg">Bạn có chắc muốn hủy sự kiện này?</p>
-        <p style="color:var(--text-muted);font-size:13px">⚠️ Toàn bộ booking CONFIRMED sẽ bị hủy theo.</p>
-        <div class="form-error" id="cancelEventModalError" style="display:none"></div>
+        <p id="cancelEventModalMsg" class="modal-confirm-msg">Are you sure you want to cancel this event?</p>
+        <p class="modal-warning-text">All CONFIRMED bookings for this event will also be cancelled.</p>
+        <div class="form-error" id="cancelEventModalError" style="display: none;"></div>
         <div class="form-actions">
-          <button class="btn btn-secondary" id="cancelCancelEvent">Quay lại</button>
-          <button class="btn btn-danger" id="confirmCancelEvent">Hủy sự kiện</button>
+          <button type="button" class="btn btn-outline" id="cancelCancelEvent">Back</button>
+          <button type="button" class="btn btn-danger" id="confirmCancelEvent">Cancel event</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Modal: Confirm xóa Event ────────────────────────────── -->
+  <!-- Modal: Confirm Delete Event -->
   <div class="modal-overlay" id="deleteModal">
-    <div class="modal modal-sm">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
       <div class="modal-header">
-        <h2>Xóa sự kiện</h2>
-        <button class="modal-close" id="closeDeleteModal">&times;</button>
+        <h2 id="deleteModalTitle">Delete event</h2>
+        <button type="button" class="modal-close" id="closeDeleteModal" aria-label="Close dialog">✕</button>
       </div>
       <div class="modal-body">
-        <p id="deleteModalMsg">Bạn có chắc muốn xóa sự kiện này?</p>
-        <div class="form-error" id="deleteModalError" style="display:none"></div>
+        <p id="deleteModalMsg" class="modal-confirm-msg">Are you sure you want to delete this event?</p>
+        <div class="form-error" id="deleteModalError" style="display: none;"></div>
         <div class="form-actions">
-          <button class="btn btn-secondary" id="cancelDelete">Hủy</button>
-          <button class="btn btn-danger" id="confirmDelete">Xóa</button>
+          <button type="button" class="btn btn-outline" id="cancelDelete">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-notification" id="toast">
+    <div class="toast-icon">✓</div>
+    <div class="toast-message" id="toastMessage">Action completed</div>
   </div>
 
   <script src="admin.js"></script>

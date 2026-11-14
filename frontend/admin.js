@@ -1,27 +1,26 @@
 /* ========================================================
-   TicketRush — Admin Panel JS (Enterprise Architecture)
+   TicketRush - Dashboard JS
    ======================================================== */
 
 const API = 'http://127.0.0.1:8000/api';
 
-// ── Auth Storage ─────────────────────────────────────────────
+// Auth Storage
 function getToken() { return localStorage.getItem('authToken'); }
-function getUser()  {
+function getUser() {
   try { return JSON.parse(localStorage.getItem('currentUser')); }
   catch { return null; }
 }
 
-// ── Client-Side Auth Guard ───────────────────────────────────
+// Client-Side Auth Guard
 (function guardAdmin() {
   const token = getToken();
-  const user  = getUser();
+  const user = getUser();
   if (!token || !user || user.role !== 'ADMIN') {
-    alert('Bạn cần đăng nhập với tài khoản Admin để truy cập trang này.');
     window.location.href = 'index.html';
   }
 })();
 
-// ── Enterprise HTTP Client (with 401 Interceptor) ────────────
+// HTTP Client with 401 Interceptor
 async function apiFetch(path, options = {}) {
   const token = getToken();
   const headers = {
@@ -35,9 +34,8 @@ async function apiFetch(path, options = {}) {
     headers,
   });
 
-  // Interceptor: xử lý tập trung khi phiên đăng nhập hết hạn hoặc không hợp lệ
   if (res.status === 401) {
-    alert('Phiên làm việc đã hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.');
+    alert('Your session has expired or is invalid. Please log in again.');
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
     window.location.href = 'index.html';
@@ -47,10 +45,13 @@ async function apiFetch(path, options = {}) {
   return res;
 }
 
-// ── Helpers ──────────────────────────────────────────────────
+// Helpers
 function formatDate(str) {
   if (!str) return '—';
-  return new Date(str).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
+  return new Date(str).toLocaleString('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
 }
 
 function formatMoney(amount, currency = '£') {
@@ -59,62 +60,109 @@ function formatMoney(amount, currency = '£') {
 
 function showError(id, msg) {
   const el = document.getElementById(id);
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  if (el) {
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
 }
+
 function hideError(id) {
   const el = document.getElementById(id);
   if (el) el.style.display = 'none';
 }
 
-// ── Populate admin info ──────────────────────────────────────
-const user = getUser();
-if (user) {
-  document.getElementById('adminName').textContent  = user.full_name || 'Admin';
-  document.getElementById('adminEmail').textContent = user.email || '';
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-// ── Logout ───────────────────────────────────────────────────
+// Toast Notification
+let toastTimer = null;
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toastMessage');
+  if (!toast || !toastMsg) return;
+
+  toastMsg.textContent = message;
+  toast.classList.add('active');
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('active');
+  }, 3500);
+}
+
+// Populate Admin Header Greeting
+const currentUser = getUser();
+if (currentUser) {
+  const fullName = (currentUser.full_name || 'Admin').trim();
+  const initial = fullName.charAt(0).toUpperCase();
+  const nameParts = fullName.split(/\s+/);
+  const displayName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+
+  const avatarEl = document.getElementById('adminAvatar');
+  const nameEl = document.getElementById('adminName');
+  if (avatarEl) avatarEl.textContent = initial;
+  if (nameEl) nameEl.textContent = displayName;
+}
+
+// Logout
 document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('authToken');
   localStorage.removeItem('currentUser');
   window.location.href = 'index.html';
 });
 
-// ── Tab Navigation ───────────────────────────────────────────
+// Tab Navigation
 let eventsCache = [];
 
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', e => {
+document.querySelectorAll('.nav-item').forEach((item) => {
+  item.addEventListener('click', (e) => {
     e.preventDefault();
     const tab = item.dataset.tab;
 
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach((n) => {
+      n.classList.remove('active');
+      n.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.admin-tab').forEach((t) => t.classList.remove('active'));
 
     item.classList.add('active');
+    item.setAttribute('aria-selected', 'true');
     document.getElementById(`tab-${tab}`).classList.add('active');
 
-    if (tab === 'events')   loadEvents();
+    document.getElementById('eventsActions').style.display = tab === 'events' ? 'block' : 'none';
+    document.getElementById('bookingsActions').style.display = tab === 'bookings' ? 'flex' : 'none';
+
+    if (tab === 'events') loadEvents();
     if (tab === 'bookings') loadBookings();
   });
 });
 
-// ════════════════════════════════════════════════════════════
+// ========================================================
 // EVENTS TAB
-// ════════════════════════════════════════════════════════════
+// ========================================================
 async function loadEvents() {
   const tbody = document.getElementById('eventsTableBody');
-  tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Đang tải...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Loading events...</td></tr>';
 
   try {
     const res = await apiFetch('/events/');
     const data = await res.json();
     eventsCache = data.events || [];
+    const countEl = document.getElementById('eventsCount');
+    if (countEl) countEl.textContent = eventsCache.length;
     renderEventsTable(eventsCache);
     populateEventFilter(eventsCache);
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Failed to load events.</td></tr>';
     }
   }
 }
@@ -122,40 +170,62 @@ async function loadEvents() {
 function renderEventsTable(events) {
   const tbody = document.getElementById('eventsTableBody');
   if (!events.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-loading">Chưa có sự kiện nào.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="table-loading">No events found.</td></tr>';
     return;
   }
-  tbody.innerHTML = events.map(ev => {
+
+  tbody.innerHTML = events.map((ev) => {
     const sold = ev.total_tickets - ev.available_tickets;
-    const pct  = ev.total_tickets ? (sold / ev.total_tickets * 100).toFixed(0) : 0;
-    const avClass = ev.available_tickets === 0 ? 'tickets-sold'
-                  : ev.available_tickets < 50  ? 'tickets-low' : 'tickets-ok';
+    const pct = ev.total_tickets ? ((sold / ev.total_tickets) * 100).toFixed(0) : 0;
+    const avClass = ev.available_tickets === 0
+      ? 'tickets-sold'
+      : ev.available_tickets < 50
+        ? 'tickets-low'
+        : 'tickets-ok';
     const isCancelled = ev.status === 'CANCELLED';
     const statusBadge = isCancelled
-      ? '<span class="badge badge-cancelled">HỦY</span>'
+      ? '<span class="badge badge-cancelled">CANCELLED</span>'
       : '<span class="badge badge-confirmed">ACTIVE</span>';
     const actionBtns = isCancelled
-      ? '<span style="color:var(--text-light);font-size:12px">Đã hủy</span>'
-      : `<button class="btn-action btn-edit" onclick="openEditEvent(${ev.id})">✏️ Sửa</button>
-         <button class="btn-action btn-cancel-ev" onclick="openCancelEvent(${ev.id},'${escHtml(ev.name)}')">🚫 Hủy</button>
-         <button class="btn-action btn-delete" onclick="openDeleteEvent(${ev.id},'${escHtml(ev.name)}')">🗑️ Xóa</button>`;
+      ? '<span class="muted-cell">Cancelled</span>'
+      : `<button type="button" class="btn-action" data-action="edit" data-id="${ev.id}">Edit</button>
+         <button type="button" class="btn-action" data-action="cancel" data-id="${ev.id}">Cancel</button>
+         <button type="button" class="btn-action btn-delete" data-action="delete" data-id="${ev.id}">Delete</button>`;
+
     return `
-      <tr ${isCancelled ? 'style="opacity:0.6"' : ''}>
-        <td><span style="color:var(--text-muted)">#${ev.id}</span></td>
-        <td><strong>${escHtml(ev.name)}</strong><br>
-            <small style="color:var(--text-muted)">${escHtml(ev.category)}</small></td>
+      <tr ${isCancelled ? 'style="opacity: 0.6;"' : ''}>
+        <td><span class="muted-cell">#${ev.id}</span></td>
+        <td>
+          <strong>${escHtml(ev.name)}</strong>
+          <span class="event-category-sub">${escHtml(ev.category)}</span>
+        </td>
         <td>${formatDate(ev.event_date)}</td>
         <td>${escHtml(ev.venue)}</td>
         <td>${formatMoney(ev.price, ev.currency)}</td>
-        <td class="${avClass}">${ev.available_tickets}/${ev.total_tickets}
-            <small>(${pct}% sold)</small></td>
+        <td class="${avClass}">
+          ${ev.available_tickets}/${ev.total_tickets}
+          <span class="tickets-pct">${pct}% sold</span>
+        </td>
         <td>${statusBadge}</td>
         <td><div class="action-cell">${actionBtns}</div></td>
       </tr>`;
   }).join('');
 }
 
-// ── Create / Edit Event Modal ─────────────────────────────────
+document.getElementById('eventsTableBody').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+
+  const id = parseInt(btn.dataset.id, 10);
+  const ev = eventsCache.find((item) => item.id === id);
+  if (!ev) return;
+
+  if (btn.dataset.action === 'edit') openEditEvent(id);
+  if (btn.dataset.action === 'cancel') openCancelEvent(id, ev.name);
+  if (btn.dataset.action === 'delete') openDeleteEvent(id, ev.name);
+});
+
+// Create / Edit Event Modal
 let editingEventId = null;
 
 document.getElementById('btnNewEvent').addEventListener('click', openCreateEvent);
@@ -165,35 +235,39 @@ document.getElementById('eventForm').addEventListener('submit', submitEventForm)
 
 function openCreateEvent() {
   editingEventId = null;
-  document.getElementById('eventModalTitle').textContent = 'Tạo sự kiện mới';
-  document.getElementById('submitEventBtn').textContent  = 'Tạo sự kiện';
+  document.getElementById('eventModalTitle').textContent = 'Create new event';
+  document.getElementById('submitEventBtn').textContent = 'Create event';
   document.getElementById('editEventId').value = '';
   document.getElementById('eventForm').reset();
   document.getElementById('f-category').value = 'Music';
-  document.getElementById('f-price').value     = '0';
+  document.getElementById('f-price').value = '0';
   document.getElementById('f-total-tickets').value = '300';
   hideError('eventFormError');
   document.getElementById('eventModal').classList.add('open');
 }
 
 function openEditEvent(id) {
-  const ev = eventsCache.find(e => e.id === id);
+  const ev = eventsCache.find((e) => e.id === id);
   if (!ev) return;
+
   editingEventId = id;
-  document.getElementById('eventModalTitle').textContent = 'Sửa sự kiện';
-  document.getElementById('submitEventBtn').textContent  = 'Lưu thay đổi';
-  document.getElementById('editEventId').value     = id;
-  document.getElementById('f-name').value          = ev.name;
-  document.getElementById('f-category').value      = ev.category;
-  document.getElementById('f-venue').value         = ev.venue;
-  document.getElementById('f-description').value   = ev.description || '';
-  document.getElementById('f-price').value         = ev.price;
+  document.getElementById('eventModalTitle').textContent = 'Edit event';
+  document.getElementById('submitEventBtn').textContent = 'Save changes';
+  document.getElementById('editEventId').value = id;
+  document.getElementById('f-name').value = ev.name;
+  document.getElementById('f-category').value = ev.category;
+  document.getElementById('f-venue').value = ev.venue;
+  document.getElementById('f-description').value = ev.description || '';
+  document.getElementById('f-price').value = ev.price;
   document.getElementById('f-total-tickets').value = ev.total_tickets;
-  document.getElementById('f-image-url').value     = ev.image_url || '';
+  document.getElementById('f-image-url').value = ev.image_url || '';
+
   const d = new Date(ev.event_date);
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString().slice(0, 16);
+    .toISOString()
+    .slice(0, 16);
   document.getElementById('f-event-date').value = local;
+
   hideError('eventFormError');
   document.getElementById('eventModal').classList.add('open');
 }
@@ -208,43 +282,45 @@ async function submitEventForm(e) {
 
   const btn = document.getElementById('submitEventBtn');
   btn.disabled = true;
-  btn.textContent = 'Đang lưu...';
+  btn.textContent = 'Saving...';
 
   const body = {
-    name:          document.getElementById('f-name').value.trim(),
-    category:      document.getElementById('f-category').value.trim() || 'Music',
-    venue:         document.getElementById('f-venue').value.trim(),
-    description:   document.getElementById('f-description').value.trim() || null,
-    price:         parseFloat(document.getElementById('f-price').value) || 0,
-    total_tickets: parseInt(document.getElementById('f-total-tickets').value),
-    image_url:     document.getElementById('f-image-url').value.trim() || null,
-    event_date:    document.getElementById('f-event-date').value,
-    currency:      '£',
+    name: document.getElementById('f-name').value.trim(),
+    category: document.getElementById('f-category').value.trim() || 'Music',
+    venue: document.getElementById('f-venue').value.trim(),
+    description: document.getElementById('f-description').value.trim() || null,
+    price: parseFloat(document.getElementById('f-price').value) || 0,
+    total_tickets: parseInt(document.getElementById('f-total-tickets').value, 10),
+    image_url: document.getElementById('f-image-url').value.trim() || null,
+    event_date: document.getElementById('f-event-date').value,
+    currency: '£',
   };
 
   try {
-    const res = editingEventId
+    const isEdit = Boolean(editingEventId);
+    const res = isEdit
       ? await apiFetch(`/admin/events/${editingEventId}`, { method: 'PUT', body: JSON.stringify(body) })
       : await apiFetch('/admin/events', { method: 'POST', body: JSON.stringify(body) });
 
     if (res.ok) {
       closeEventModal();
       loadEvents();
+      showToast(isEdit ? 'Event updated successfully.' : 'Event created successfully.');
     } else {
       const err = await res.json();
-      showError('eventFormError', err.detail || 'Có lỗi xảy ra.');
+      showError('eventFormError', err.detail || 'Something went wrong.');
     }
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      showError('eventFormError', 'Không thể kết nối server.');
+      showError('eventFormError', 'Unable to connect to the server.');
     }
   } finally {
     btn.disabled = false;
-    btn.textContent = editingEventId ? 'Lưu thay đổi' : 'Tạo sự kiện';
+    btn.textContent = editingEventId ? 'Save changes' : 'Create event';
   }
 }
 
-// ── Cancel Event Modal ───────────────────────────────────────
+// Cancel Event Modal
 let cancellingEventId = null;
 
 document.getElementById('closeCancelEventModal').addEventListener('click', closeCancelEventModal);
@@ -254,10 +330,11 @@ document.getElementById('confirmCancelEvent').addEventListener('click', doCancel
 function openCancelEvent(id, name) {
   cancellingEventId = id;
   document.getElementById('cancelEventModalMsg').textContent =
-    `Bạn có chắc muốn HỦY sự kiện "${name}"?`;
+    `Are you sure you want to cancel "${name}"?`;
   hideError('cancelEventModalError');
   document.getElementById('cancelEventModal').classList.add('open');
 }
+
 function closeCancelEventModal() {
   document.getElementById('cancelEventModal').classList.remove('open');
 }
@@ -265,7 +342,8 @@ function closeCancelEventModal() {
 async function doCancelEvent() {
   if (!cancellingEventId) return;
   const btn = document.getElementById('confirmCancelEvent');
-  btn.disabled = true; btn.textContent = 'Đang hủy...';
+  btn.disabled = true;
+  btn.textContent = 'Cancelling...';
   hideError('cancelEventModalError');
 
   try {
@@ -274,21 +352,22 @@ async function doCancelEvent() {
       const data = await res.json();
       closeCancelEventModal();
       loadEvents();
-      alert(`✅ ${data.message}\n📋 Đã hủy ${data.cancelled_bookings} booking.`);
+      showToast(`${data.message} (${data.cancelled_bookings} booking(s) cancelled).`);
     } else {
       const err = await res.json();
-      showError('cancelEventModalError', err.detail || 'Không thể hủy sự kiện.');
+      showError('cancelEventModalError', err.detail || 'Failed to cancel event.');
     }
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      showError('cancelEventModalError', 'Không thể kết nối server.');
+      showError('cancelEventModalError', 'Unable to connect to the server.');
     }
   } finally {
-    btn.disabled = false; btn.textContent = 'Hủy sự kiện';
+    btn.disabled = false;
+    btn.textContent = 'Cancel event';
   }
 }
 
-// ── Delete Event Modal ────────────────────────────────────────
+// Delete Event Modal
 let deletingEventId = null;
 
 document.getElementById('closeDeleteModal').addEventListener('click', closeDeleteModal);
@@ -298,10 +377,11 @@ document.getElementById('confirmDelete').addEventListener('click', doDeleteEvent
 function openDeleteEvent(id, name) {
   deletingEventId = id;
   document.getElementById('deleteModalMsg').textContent =
-    `Bạn có chắc muốn xóa sự kiện "${name}"? Hành động này không thể hoàn tác.`;
+    `Are you sure you want to delete "${name}"? This action cannot be undone.`;
   hideError('deleteModalError');
   document.getElementById('deleteModal').classList.add('open');
 }
+
 function closeDeleteModal() {
   document.getElementById('deleteModal').classList.remove('open');
 }
@@ -309,7 +389,8 @@ function closeDeleteModal() {
 async function doDeleteEvent() {
   if (!deletingEventId) return;
   const btn = document.getElementById('confirmDelete');
-  btn.disabled = true; btn.textContent = 'Đang xóa...';
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
   hideError('deleteModalError');
 
   try {
@@ -317,42 +398,66 @@ async function doDeleteEvent() {
     if (res.ok) {
       closeDeleteModal();
       loadEvents();
+      showToast('Event deleted.');
     } else {
       const err = await res.json();
-      showError('deleteModalError', err.detail || 'Không thể xóa.');
+      showError('deleteModalError', err.detail || 'Failed to delete event.');
     }
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      showError('deleteModalError', 'Không thể kết nối server.');
+      showError('deleteModalError', 'Unable to connect to the server.');
     }
   } finally {
-    btn.disabled = false; btn.textContent = 'Xóa';
+    btn.disabled = false;
+    btn.textContent = 'Delete';
   }
 }
 
-// ════════════════════════════════════════════════════════════
+// ========================================================
 // BOOKINGS TAB
-// ════════════════════════════════════════════════════════════
+// ========================================================
 let bookingsEventMap = {};
 
 function populateEventFilter(events) {
   const sel = document.getElementById('filterEvent');
-  sel.innerHTML = '<option value="">Tất cả sự kiện</option>';
-  events.forEach(ev => {
+  const currentValue = sel.value;
+  sel.innerHTML = '<option value="">All events</option>';
+
+  events.forEach((ev) => {
     const opt = document.createElement('option');
     opt.value = ev.id;
     opt.textContent = ev.name;
     sel.appendChild(opt);
     bookingsEventMap[ev.id] = ev.name;
   });
+
+  if (currentValue) sel.value = currentValue;
 }
 
-document.getElementById('filterEvent').addEventListener('change', loadBookings);
+document.getElementById('filterEvent').addEventListener('change', (e) => {
+  const btn = document.getElementById('btnExportAllCSV');
+  if (btn) {
+    btn.textContent = e.target.value ? 'Export event CSV' : 'Export all CSV';
+  }
+  loadBookings();
+});
+
+async function refreshBookingsCount() {
+  try {
+    const res = await apiFetch('/admin/bookings');
+    if (!res.ok) return;
+    const data = await res.json();
+    const countEl = document.getElementById('bookingsCount');
+    if (countEl) countEl.textContent = data.total ?? (data.bookings ? data.bookings.length : 0);
+  } catch {
+    // Ignore background count errors; explicit tab load handles user feedback.
+  }
+}
 
 async function loadBookings() {
   const tbody = document.getElementById('bookingsTableBody');
-  const meta  = document.getElementById('bookingsMeta');
-  tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Đang tải...</td></tr>';
+  const meta = document.getElementById('bookingsMeta');
+  tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Loading bookings...</td></tr>';
   meta.style.display = 'none';
 
   const eventId = document.getElementById('filterEvent').value;
@@ -363,43 +468,55 @@ async function loadBookings() {
     if (!res.ok) throw new Error();
     const data = await res.json();
 
+    if (!eventId) {
+      const countEl = document.getElementById('bookingsCount');
+      if (countEl) countEl.textContent = data.total ?? data.bookings.length;
+    }
+
     if (data.event_name) {
-      meta.textContent = `📅 Sự kiện: ${data.event_name} — ${data.total} booking`;
+      meta.textContent = `Event: ${data.event_name} — ${data.total} booking${data.total === 1 ? '' : 's'}`;
       meta.style.display = 'block';
     }
 
-    renderBookingsTable(data.bookings, eventId);
+    renderBookingsTable(data.bookings);
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Lỗi tải dữ liệu.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Failed to load bookings.</td></tr>';
     }
   }
 }
 
-function renderBookingsTable(bookings, filteredEventId) {
+function renderBookingsTable(bookings) {
   const tbody = document.getElementById('bookingsTableBody');
   if (!bookings.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="table-loading">Chưa có booking nào.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="table-loading">No bookings found.</td></tr>';
     return;
   }
-  tbody.innerHTML = bookings.map(b => {
+
+  tbody.innerHTML = bookings.map((b) => {
     const badgeClass = b.status === 'CONFIRMED' ? 'badge-confirmed' : 'badge-cancelled';
-    const eventName  = bookingsEventMap[b.event_id] || `#${b.event_id}`;
-    const exportBtn  = filteredEventId
-      ? `<button class="btn-action btn-export" onclick="exportCSV(${b.event_id})">⬇️ CSV</button>`
-      : `<button class="btn-action btn-export" onclick="exportCSV(${b.event_id})">⬇️ CSV</button>`;
+    const eventName = bookingsEventMap[b.event_id] || `#${b.event_id}`;
+    const tier = b.ticket_tier || 'STANDARD';
+    const tierBadge = `<span class="tier-badge tier-badge-${escHtml(tier.toLowerCase())}">${escHtml(tier)}</span>`;
+    const exportBtn = `<button type="button" class="btn-action" data-action="export" data-event-id="${b.event_id}">CSV</button>`;
     const emailBtn = b.status === 'CONFIRMED'
-      ? `<button class="btn-action btn-email-ticket" onclick="sendTicketEmail(${b.id}, this)">📧 Gửi QR</button>`
-      : '<span style="color:var(--text-light);font-size:12px">Không khả dụng</span>';
+      ? `<button type="button" class="btn-action" data-action="send-qr" data-booking-id="${b.id}">Send QR</button>`
+      : '<span class="muted-cell">Unavailable</span>';
+
     return `
       <tr>
-        <td><code style="font-size:11px">${escHtml(b.booking_code)}</code></td>
+        <td><code class="booking-ref-code">${escHtml(b.booking_code)}</code></td>
         <td>${escHtml(b.buyer_name)}</td>
-        <td><a href="mailto:${escHtml(b.buyer_email)}">${escHtml(b.buyer_email)}</a></td>
+        <td><a class="booking-email-link" href="mailto:${escHtml(b.buyer_email)}">${escHtml(b.buyer_email)}</a></td>
         <td>${escHtml(eventName)}</td>
-        <td>${b.quantity}</td>
+        <td>
+          <div class="booking-qty-cell">
+            <span>${b.quantity}</span>
+            ${tierBadge}
+          </div>
+        </td>
         <td>${formatMoney(b.total_amount, b.currency)}</td>
-        <td><span class="badge ${badgeClass}">${b.status}</span></td>
+        <td><span class="badge ${badgeClass}">${escHtml(b.status)}</span></td>
         <td>${formatDate(b.created_at)}</td>
         <td>${exportBtn}</td>
         <td>${emailBtn}</td>
@@ -407,22 +524,36 @@ function renderBookingsTable(bookings, filteredEventId) {
   }).join('');
 }
 
+document.getElementById('bookingsTableBody').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+
+  if (btn.dataset.action === 'export') {
+    const eventId = parseInt(btn.dataset.eventId, 10);
+    exportCSV(eventId);
+  }
+  if (btn.dataset.action === 'send-qr') {
+    const bookingId = parseInt(btn.dataset.bookingId, 10);
+    sendTicketEmail(bookingId, btn);
+  }
+});
+
 async function sendTicketEmail(bookingId, button) {
   const originalText = button.textContent;
   button.disabled = true;
-  button.textContent = 'Đang gửi...';
+  button.textContent = 'Sending...';
 
   try {
     const res = await apiFetch(`/admin/bookings/${bookingId}/send-tickets`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.detail || 'Không thể gửi vé QR.');
+      alert(data.detail || 'Failed to send QR tickets.');
       return;
     }
-    alert(`Đã gửi ${data.tickets_sent} vé QR tới ${data.recipient}.`);
+    showToast(`Sent ${data.tickets_sent} QR ticket(s) to ${data.recipient}.`);
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      alert('Lỗi kết nối server khi gửi vé QR.');
+      alert('Unable to connect to the server while sending QR tickets.');
     }
   } finally {
     button.disabled = false;
@@ -430,29 +561,35 @@ async function sendTicketEmail(bookingId, button) {
   }
 }
 
-// ── Export CSV ────────────────────────────────────────────────
+// Export CSV
 async function exportCSV(eventId = null) {
   const btn = document.getElementById('btnExportAllCSV');
   const originalText = btn ? btn.textContent : '';
   if (btn && !eventId) {
     btn.disabled = true;
-    btn.textContent = 'Đang xuất...';
+    btn.textContent = 'Exporting...';
   }
 
   try {
     const path = eventId ? `/admin/bookings/export?event_id=${eventId}` : '/admin/bookings/export';
     const res = await apiFetch(path);
-    if (!res.ok) { alert('Không thể xuất CSV.'); return; }
+    if (!res.ok) {
+      alert('Failed to export CSV.');
+      return;
+    }
     const blob = await res.blob();
     const filename = res.headers.get('Content-Disposition')
       ?.match(/filename="(.+)"/)?.[1] || (eventId ? `event_${eventId}_attendees.csv` : 'all_bookings_report.csv');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
+    a.href = url;
+    a.download = filename;
+    a.click();
     URL.revokeObjectURL(url);
+    showToast(`Exported ${filename}.`);
   } catch (err) {
     if (err.message !== 'Unauthorized') {
-      alert('Lỗi kết nối server.');
+      alert('Unable to connect to the server.');
     }
   } finally {
     if (btn && !eventId) {
@@ -462,29 +599,22 @@ async function exportCSV(eventId = null) {
   }
 }
 
-// Lắng nghe nút xuất CSV ở trên cùng
 const exportAllBtn = document.getElementById('btnExportAllCSV');
 if (exportAllBtn) {
   exportAllBtn.addEventListener('click', () => {
     const selectedEventId = document.getElementById('filterEvent').value;
-    exportCSV(selectedEventId ? parseInt(selectedEventId) : null);
+    exportCSV(selectedEventId ? parseInt(selectedEventId, 10) : null);
   });
 }
 
-// Cập nhật nhãn nút xuất theo bộ lọc
-document.getElementById('filterEvent').addEventListener('change', (e) => {
-  const btn = document.getElementById('btnExportAllCSV');
-  if (btn) {
-    btn.textContent = e.target.value ? '⬇️ Xuất CSV sự kiện này' : '⬇️ Xuất tất cả CSV';
-  }
+// Close modals on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  closeEventModal();
+  closeCancelEventModal();
+  closeDeleteModal();
 });
 
-// ── Escape HTML ───────────────────────────────────────────────
-function escHtml(str) {
-  if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Init ──────────────────────────────────────────────────────
+// Init
 loadEvents();
+refreshBookingsCount();
