@@ -1,7 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, EmailStr
+
+
+TicketTierType = Literal["STANDARD", "VIP", "VVIP"]
 
 
 class EventResponse(BaseModel):
@@ -15,6 +19,12 @@ class EventResponse(BaseModel):
     image_url: str | None = None
     total_tickets: int
     available_tickets: int
+    standard_tickets: int = 180
+    standard_available: int = 180
+    vip_tickets: int = 90
+    vip_available: int = 90
+    vvip_tickets: int = 30
+    vvip_available: int = 30
     price: Decimal
     currency: str
     event_date: datetime
@@ -30,6 +40,7 @@ class BookingCreateRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     event_id: int = Field(gt=0)
+    ticket_tier: TicketTierType = "STANDARD"
     buyer_name: str | None = Field(default=None, max_length=100)
     buyer_email: EmailStr | None = None
     quantity: int = Field(ge=1, le=10)
@@ -39,6 +50,7 @@ class TicketResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     ticket_code: str
+    ticket_tier: str = "STANDARD"
     status: str
     qr_code_url: str | None = None
 
@@ -56,6 +68,7 @@ class BookingResponse(BaseModel):
 
     buyer_name: str
     buyer_email: EmailStr
+    ticket_tier: str = "STANDARD"
 
     quantity: int
     unit_price: Decimal
@@ -143,6 +156,7 @@ class AdminBookingResponse(BaseModel):
     id: int
     booking_code: str
     event_id: int
+    ticket_tier: str = "STANDARD"
     buyer_name: str
     buyer_email: EmailStr
     quantity: int
