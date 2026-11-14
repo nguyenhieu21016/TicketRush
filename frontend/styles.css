@@ -861,6 +861,10 @@ body {
   gap: 8px;
 }
 
+.ticket-selection > .field-label {
+  margin-bottom: 2px;
+}
+
 .ticket-tier {
   border: 1.5px solid var(--border-subtle);
   border-radius: 10px;
@@ -960,6 +964,10 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 4px 0;
+}
+
+.quantity-selector .field-label {
+  margin-bottom: 0;
 }
 
 .qty-stepper {

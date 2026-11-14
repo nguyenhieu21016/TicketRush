@@ -164,6 +164,7 @@ function init() {
   renderAuthUI();
   render(); // vẽ ban đầu (rỗng)
   fetchEventsFromAPI(); // gọi API lấy dữ liệu thật
+  handleRouteHash();
 }
 
 // Event Bindings
@@ -219,6 +220,16 @@ function bindEvents() {
   });
 
   elements.backToEvents.addEventListener('click', showEventsView);
+
+  const brandLogo = document.querySelector('.brand-logo');
+  if (brandLogo) {
+    brandLogo.addEventListener('click', (e) => {
+      e.preventDefault();
+      showEventsView();
+    });
+  }
+  window.addEventListener('hashchange', handleRouteHash);
+  window.addEventListener('popstate', handleRouteHash);
 
   // Booking Modal
   elements.closeBookingModal.addEventListener('click', closeAllModals);
@@ -569,11 +580,6 @@ function selectTicketTier(tierKey) {
     elements.qtyVal.textContent = String(state.ticketQuantity);
   }
 
-  if (elements.bookingStockInfo && state.selectedEvent) {
-    elements.bookingStockInfo.textContent =
-      `${tierStock} ${tierKey} tickets available (${state.selectedEvent.availableTickets} total)`;
-  }
-
   updateBookingTotals();
 }
 
@@ -705,6 +711,17 @@ function handleLogout() {
 function showEventsView() {
   elements.eventsView.hidden = false;
   elements.purchasedTicketsView.hidden = true;
+  if (window.location.hash === '#my-tickets') {
+    history.pushState(null, '', window.location.pathname + window.location.search);
+  }
+}
+
+function handleRouteHash() {
+  if (window.location.hash === '#my-tickets' && state.currentUser && state.authToken) {
+    showPurchasedTickets();
+  } else {
+    showEventsView();
+  }
 }
 
 async function showPurchasedTickets() {
@@ -712,6 +729,10 @@ async function showPurchasedTickets() {
     openAuthModal('login');
     showToast('Please log in to view your tickets.');
     return;
+  }
+
+  if (window.location.hash !== '#my-tickets') {
+    history.pushState(null, '', '#my-tickets');
   }
 
   elements.eventsView.hidden = true;
