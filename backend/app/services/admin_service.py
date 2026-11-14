@@ -14,8 +14,17 @@ from app.models import Event, Booking
 from app.schemas import EventCreateRequest, EventUpdateRequest, AdminBookingListResponse, AdminBookingResponse
 
 
+def _split_tier_tickets(total: int) -> tuple[int, int, int]:
+    """Chia tổng số vé theo tỷ lệ 60% Standard, 30% VIP, 10% VVIP."""
+    std = round(total * 0.6)
+    vip = round(total * 0.3)
+    vvip = max(0, total - std - vip)
+    return std, vip, vvip
+
+
 def create_event(db: Session, request: EventCreateRequest) -> Event:
     """Tạo sự kiện mới."""
+    std, vip, vvip = _split_tier_tickets(request.total_tickets)
     new_event = Event(
         name=request.name,
         description=request.description,
@@ -24,6 +33,12 @@ def create_event(db: Session, request: EventCreateRequest) -> Event:
         image_url=request.image_url,
         total_tickets=request.total_tickets,
         available_tickets=request.total_tickets,  # Ban đầu = total
+        standard_tickets=std,
+        standard_available=std,
+        vip_tickets=vip,
+        vip_available=vip,
+        vvip_tickets=vvip,
+        vvip_available=vvip,
         price=request.price,
         currency=request.currency,
         event_date=request.event_date,
@@ -51,10 +66,32 @@ def update_event(db: Session, event_id: int, request: EventUpdateRequest) -> Eve
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot reduce total tickets below {sold_tickets} (already sold)."
             )
-        # Cập nhật available_tickets tương ứng
+
+        sold_std = event.standard_tickets - event.standard_available
+        sold_vip = event.vip_tickets - event.vip_available
+        sold_vvip = event.vvip_tickets - event.vvip_available
+
+        new_std, new_vip, new_vvip = _split_tier_tickets(request.total_tickets)
+        if new_std < sold_std or new_vip < sold_vip or new_vvip < sold_vvip:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot resize total tickets to {request.total_tickets}: "
+                    f"tier allocations ({new_std}/{new_vip}/{new_vvip}) would fall below "
+                    f"already sold counts ({sold_std}/{sold_vip}/{sold_vvip})."
+                )
+            )
+
+        # Cập nhật available_tickets và từng hạng tương ứng
         diff = request.total_tickets - event.total_tickets
         event.total_tickets = request.total_tickets
         event.available_tickets = event.available_tickets + diff
+        event.standard_tickets = new_std
+        event.standard_available = new_std - sold_std
+        event.vip_tickets = new_vip
+        event.vip_available = new_vip - sold_vip
+        event.vvip_tickets = new_vvip
+        event.vvip_available = new_vvip - sold_vvip
 
     # Cập nhật các field khác (chỉ những field được gửi)
     update_fields = request.model_dump(exclude_unset=True, exclude={"total_tickets"})
@@ -142,6 +179,9 @@ def cancel_event(db: Session, event_id: int) -> dict:
     # Đánh dấu event là CANCELLED
     event.status = "CANCELLED"
     event.available_tickets = 0  # Không còn vé nào được phép đặt
+    event.standard_available = 0
+    event.vip_available = 0
+    event.vvip_available = 0
 
     db.commit()
 
@@ -175,7 +215,7 @@ def export_bookings_csv(db: Session, event_id: int | None = None) -> StreamingRe
 
         # Header cho sự kiện cụ thể
         writer.writerow([
-            "Booking Code", "Buyer Name", "Buyer Email",
+            "Booking Code", "Buyer Name", "Buyer Email", "Ticket Tier",
             "Quantity", "Unit Price", "Total Amount", "Currency",
             "Status", "Booked At"
         ])
@@ -185,6 +225,7 @@ def export_bookings_csv(db: Session, event_id: int | None = None) -> StreamingRe
                 b.booking_code,
                 b.buyer_name,
                 b.buyer_email,
+                b.ticket_tier,
                 b.quantity,
                 str(b.unit_price),
                 str(b.total_amount),
@@ -206,7 +247,7 @@ def export_bookings_csv(db: Session, event_id: int | None = None) -> StreamingRe
 
         # Header có thêm cột Event Name
         writer.writerow([
-            "Booking Code", "Event Name", "Buyer Name", "Buyer Email",
+            "Booking Code", "Event Name", "Buyer Name", "Buyer Email", "Ticket Tier",
             "Quantity", "Unit Price", "Total Amount", "Currency",
             "Status", "Booked At"
         ])
@@ -217,6 +258,7 @@ def export_bookings_csv(db: Session, event_id: int | None = None) -> StreamingRe
                 ev_name,
                 b.buyer_name,
                 b.buyer_email,
+                b.ticket_tier,
                 b.quantity,
                 str(b.unit_price),
                 str(b.total_amount),
