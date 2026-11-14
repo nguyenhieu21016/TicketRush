@@ -776,8 +776,10 @@ function renderPurchasedTickets(bookings) {
       return `
         <li class="ticket-code-item">
           <code>${escapeHTML(ticket.ticket_code)}</code>
-          <span class="tier-badge tier-badge-${escapeHTML(ticketTier.toLowerCase())}">${escapeHTML(ticketTier)}</span>
-          <span class="ticket-status">${escapeHTML(ticket.status)}</span>
+          <div class="ticket-code-meta">
+            <span class="tier-badge tier-badge-${escapeHTML(ticketTier.toLowerCase())}">${escapeHTML(ticketTier)}</span>
+            <span class="ticket-status">${escapeHTML(ticket.status)}</span>
+          </div>
         </li>
       `;
     }).join('');
