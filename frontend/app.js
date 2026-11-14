@@ -32,6 +32,12 @@ async function fetchEventsFromAPI() {
 
         totalTickets: Number(event.total_tickets),
         availableTickets: Number(event.available_tickets),
+        standardTickets: Number(event.standard_tickets ?? 180),
+        standardAvailable: Number(event.standard_available ?? 180),
+        vipTickets: Number(event.vip_tickets ?? 90),
+        vipAvailable: Number(event.vip_available ?? 90),
+        vvipTickets: Number(event.vvip_tickets ?? 30),
+        vvipAvailable: Number(event.vvip_available ?? 30),
 
         dateRank: eventDate.getTime(),
         month: eventDate.toLocaleDateString('en-US', {
@@ -59,6 +65,13 @@ async function fetchEventsFromAPI() {
 }
 
 
+// Ticket Tiers Configuration
+const TIER_CONFIG = {
+  STANDARD: { label: 'Standard Admission', multiplier: 1.0, stockKey: 'standardAvailable' },
+  VIP:      { label: 'Priority / VIP Access', multiplier: 1.6, stockKey: 'vipAvailable' },
+  VVIP:     { label: 'VVIP / Front Row', multiplier: 2.2, stockKey: 'vvipAvailable' }
+};
+
 // App State
 const state = {
   searchQuery: '',
@@ -67,7 +80,8 @@ const state = {
   pageSize: 6,
   totalEventsCount: 48, // Visual match for the 48 total in London
   selectedEvent: null,
-  // ticketTierMultiplier: 1,
+  selectedTier: 'STANDARD',
+  ticketTierMultiplier: 1.0,
   ticketQuantity: 1,
   // bookingFee: 2.50
   currentUser: JSON.parse(localStorage.getItem('currentUser') || 'null'),
@@ -105,6 +119,13 @@ const elements = {
   bookingDate: document.getElementById('bookingDate'),
   bookingEventTitle: document.getElementById('bookingEventTitle'),
   bookingVenue: document.getElementById('bookingVenue'),
+  ticketTierSelection: document.getElementById('ticketTierSelection'),
+  tierPriceStandard: document.getElementById('tierPriceStandard'),
+  tierPriceVip: document.getElementById('tierPriceVip'),
+  tierPriceVvip: document.getElementById('tierPriceVvip'),
+  tierStockStandard: document.getElementById('tierStockStandard'),
+  tierStockVip: document.getElementById('tierStockVip'),
+  tierStockVvip: document.getElementById('tierStockVvip'),
   qtyMinus: document.getElementById('qtyMinus'),
   qtyPlus: document.getElementById('qtyPlus'),
   qtyVal: document.getElementById('qtyVal'),
@@ -205,6 +226,16 @@ function bindEvents() {
     if (e.target === elements.bookingModalBackdrop) closeAllModals();
   });
 
+  if (elements.ticketTierSelection) {
+    elements.ticketTierSelection.querySelectorAll('.ticket-tier').forEach(tierEl => {
+      tierEl.addEventListener('click', () => {
+        const tierKey = tierEl.getAttribute('data-tier');
+        if (tierEl.classList.contains('sold-out')) return;
+        selectTicketTier(tierKey);
+      });
+    });
+  }
+
   elements.qtyMinus.addEventListener('click', () => {
     if (state.ticketQuantity > 1) {
       state.ticketQuantity--;
@@ -216,7 +247,7 @@ function bindEvents() {
   elements.qtyPlus.addEventListener('click', () => {
     const maxQuantity = Math.min(
       10,
-      state.selectedEvent.availableTickets
+      getSelectedTierAvailable()
     );
 
     if (state.ticketQuantity < maxQuantity) {
@@ -251,6 +282,7 @@ function bindEvents() {
       // 2. Prepare booking request (Lấy thẳng tên và email từ tài khoản đang đăng nhập)
       const bookingData = {
         event_id: state.selectedEvent.id,
+        ticket_tier: state.selectedTier,
         buyer_name: state.currentUser.full_name,
         buyer_email: state.currentUser.email,
         quantity: state.ticketQuantity
@@ -514,6 +546,37 @@ function updatePaginationUI(currentPage, totalPages) {
   });
 }
 
+function getSelectedTierAvailable() {
+  if (!state.selectedEvent) return 0;
+  const cfg = TIER_CONFIG[state.selectedTier] || TIER_CONFIG.STANDARD;
+  return Number(state.selectedEvent[cfg.stockKey] ?? 0);
+}
+
+function selectTicketTier(tierKey) {
+  const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.STANDARD;
+  state.selectedTier = tierKey;
+  state.ticketTierMultiplier = cfg.multiplier;
+
+  if (elements.ticketTierSelection) {
+    elements.ticketTierSelection.querySelectorAll('.ticket-tier').forEach(el => {
+      el.classList.toggle('active', el.getAttribute('data-tier') === tierKey);
+    });
+  }
+
+  const tierStock = getSelectedTierAvailable();
+  if (state.ticketQuantity > tierStock && tierStock > 0) {
+    state.ticketQuantity = tierStock;
+    elements.qtyVal.textContent = String(state.ticketQuantity);
+  }
+
+  if (elements.bookingStockInfo && state.selectedEvent) {
+    elements.bookingStockInfo.textContent =
+      `${tierStock} ${tierKey} tickets available (${state.selectedEvent.availableTickets} total)`;
+  }
+
+  updateBookingTotals();
+}
+
 // Open Booking Modal
 function openBookingModal(eventData) {
   // 1. Kiểm tra đăng nhập trước khi cho mở modal đặt vé
@@ -541,8 +604,27 @@ function openBookingModal(eventData) {
   elements.bookingEventTitle.textContent = eventData.title;
   elements.bookingVenue.textContent = eventData.venue;
 
-  elements.bookingStockInfo.textContent =
-    `${eventData.availableTickets} tickets available`;
+  // Populate tier prices and stock badges
+  const basePrice = Number(eventData.price);
+  const currency = eventData.currency;
+  const tierMeta = [
+    { key: 'STANDARD', priceEl: elements.tierPriceStandard, stockEl: elements.tierStockStandard, stock: eventData.standardAvailable },
+    { key: 'VIP',      priceEl: elements.tierPriceVip,      stockEl: elements.tierStockVip,      stock: eventData.vipAvailable },
+    { key: 'VVIP',     priceEl: elements.tierPriceVvip,     stockEl: elements.tierStockVvip,     stock: eventData.vvipAvailable }
+  ];
+
+  tierMeta.forEach(({ key, priceEl, stockEl, stock }) => {
+    const tierPrice = (Math.round(basePrice * TIER_CONFIG[key].multiplier * 100) / 100).toFixed(2);
+    if (priceEl) priceEl.textContent = `${currency}${tierPrice}`;
+    if (stockEl) {
+      stockEl.textContent = stock > 0 ? `${stock} left` : 'Sold out';
+      stockEl.classList.toggle('sold-out', stock <= 0);
+    }
+    const cardEl = elements.ticketTierSelection?.querySelector(`.ticket-tier[data-tier="${key}"]`);
+    if (cardEl) {
+      cardEl.classList.toggle('sold-out', stock <= 0);
+    }
+  });
 
   // Cập nhật thông tin người đặt vé từ tài khoản đã đăng nhập
   if (elements.bookingUserName) {
@@ -555,7 +637,8 @@ function openBookingModal(eventData) {
     elements.bookingUserAvatar.textContent = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
   }
 
-  updateBookingTotals();
+  const defaultTier = (tierMeta.find(t => t.stock > 0) || tierMeta[0]).key;
+  selectTicketTier(defaultTier);
 
   elements.bookingModalBackdrop.classList.add('active');
 }
@@ -564,7 +647,7 @@ function openBookingModal(eventData) {
 function updateBookingTotals() {
   if (!state.selectedEvent) return;
 
-  const unitPrice = Number(state.selectedEvent.price);
+  const unitPrice = Math.round(Number(state.selectedEvent.price) * state.ticketTierMultiplier * 100) / 100;
   const quantity = state.ticketQuantity;
 
   const subtotal = unitPrice * quantity;
@@ -666,12 +749,17 @@ function renderPurchasedTickets(bookings) {
 
   elements.ticketsStatus.textContent = `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`;
   elements.purchasedTicketsList.innerHTML = bookings.map(booking => {
-    const tickets = (booking.tickets || []).map(ticket => `
-      <li class="ticket-code-item">
-        <code>${escapeHTML(ticket.ticket_code)}</code>
-        <span class="ticket-status">${escapeHTML(ticket.status)}</span>
-      </li>
-    `).join('');
+    const bookingTier = (booking.ticket_tier || 'STANDARD').toUpperCase();
+    const tickets = (booking.tickets || []).map(ticket => {
+      const ticketTier = (ticket.ticket_tier || bookingTier).toUpperCase();
+      return `
+        <li class="ticket-code-item">
+          <code>${escapeHTML(ticket.ticket_code)}</code>
+          <span class="tier-badge tier-badge-${escapeHTML(ticketTier.toLowerCase())}">${escapeHTML(ticketTier)}</span>
+          <span class="ticket-status">${escapeHTML(ticket.status)}</span>
+        </li>
+      `;
+    }).join('');
     const eventDate = new Date(booking.event_date).toLocaleString(undefined, {
       dateStyle: 'medium',
       timeStyle: 'short'
@@ -688,7 +776,7 @@ function renderPurchasedTickets(bookings) {
           <span class="booking-status">${escapeHTML(booking.status)}</span>
         </div>
         <div class="purchased-ticket-summary">
-          <span>${booking.quantity} ticket${booking.quantity === 1 ? '' : 's'}</span>
+          <span>${booking.quantity} ticket${booking.quantity === 1 ? '' : 's'} · <span class="tier-badge tier-badge-${escapeHTML(bookingTier.toLowerCase())}">${escapeHTML(bookingTier)}</span></span>
           <strong>${escapeHTML(booking.currency)}${Number(booking.total_amount).toFixed(2)}</strong>
         </div>
         <ul class="ticket-code-list">${tickets}</ul>

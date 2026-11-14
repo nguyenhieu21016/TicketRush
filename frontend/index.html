@@ -183,23 +183,39 @@
         </div>
 
         <div class="booking-body">
-          <!-- <div class="ticket-selection">
+          <div class="ticket-selection" id="ticketTierSelection">
             <label class="field-label">Select Ticket Tier</label>
-            <div class="ticket-tier active" data-price-mult="1">
+            <div class="ticket-tier active" data-tier="STANDARD" data-price-mult="1">
               <div class="tier-info">
-                <strong>Standard Admission</strong>
+                <div class="tier-title-row">
+                  <strong>Standard Admission</strong>
+                  <span class="tier-stock-badge" id="tierStockStandard">180 left</span>
+                </div>
                 <span>General entry access</span>
               </div>
-              <div class="tier-price" id="tierPrice">£45</div>
+              <div class="tier-price" id="tierPriceStandard">£45.00</div>
             </div>
-            <div class="ticket-tier" data-price-mult="1.6">
+            <div class="ticket-tier" data-tier="VIP" data-price-mult="1.6">
               <div class="tier-info">
-                <strong>Priority / VIP Access</strong>
-                <span>Fast-track entry + lounge access</span>
+                <div class="tier-title-row">
+                  <strong>Priority / VIP Access</strong>
+                  <span class="tier-stock-badge" id="tierStockVip">90 left</span>
+                </div>
+                <span>Fast-track entry + VIP lounge access</span>
               </div>
-              <div class="tier-price" id="tierPriceVip">£72</div>
+              <div class="tier-price" id="tierPriceVip">£72.00</div>
             </div>
-          </div> -->
+            <div class="ticket-tier" data-tier="VVIP" data-price-mult="2.2">
+              <div class="tier-info">
+                <div class="tier-title-row">
+                  <strong>VVIP / Front Row</strong>
+                  <span class="tier-stock-badge" id="tierStockVvip">30 left</span>
+                </div>
+                <span>Front-row seating + backstage meet &amp; greet</span>
+              </div>
+              <div class="tier-price" id="tierPriceVvip">£99.00</div>
+            </div>
+          </div>
 
           <div class="quantity-selector">
             <p class="booking-stock-info" id="bookingStockInfo"></p>
