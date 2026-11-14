@@ -94,7 +94,13 @@
 
     <!-- Empty State (hidden by default) -->
     <div class="empty-state" id="emptyState" style="display: none;">
-      <div class="empty-icon">🔍</div>
+      <div class="empty-icon" aria-hidden="true">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </div>
       <h3>No events found</h3>
       <p>Try searching for a different artist, genre, or keyword.</p>
       <button type="button" class="btn btn-outline" id="resetSearchBtn">Reset filters</button>
@@ -146,16 +152,6 @@
   <!-- Site Footer -->
   <footer class="site-footer">
     <div class="footer-inner container">
-      <!-- Trust Badge -->
-      <div class="footer-trust">
-        <svg class="trust-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F04D28" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-          <polyline points="9 12 11 14 15 10"></polyline>
-        </svg>
-        <span>Real tickets. Secure checkout. All set.</span>
-      </div>
-
       <!-- Links & Copyright -->
       <div class="footer-links">
         <a href="#help" class="footer-link">Need a hand?</a>
@@ -183,26 +179,41 @@
         </div>
 
         <div class="booking-body">
-          <!-- <div class="ticket-selection">
+          <div class="ticket-selection" id="ticketTierSelection">
             <label class="field-label">Select Ticket Tier</label>
-            <div class="ticket-tier active" data-price-mult="1">
+            <div class="ticket-tier active" data-tier="STANDARD" data-price-mult="1">
               <div class="tier-info">
-                <strong>Standard Admission</strong>
+                <div class="tier-title-row">
+                  <strong>Standard Admission</strong>
+                  <span class="tier-stock-badge" id="tierStockStandard">180 left</span>
+                </div>
                 <span>General entry access</span>
               </div>
-              <div class="tier-price" id="tierPrice">£45</div>
+              <div class="tier-price" id="tierPriceStandard">£45.00</div>
             </div>
-            <div class="ticket-tier" data-price-mult="1.6">
+            <div class="ticket-tier" data-tier="VIP" data-price-mult="1.6">
               <div class="tier-info">
-                <strong>Priority / VIP Access</strong>
-                <span>Fast-track entry + lounge access</span>
+                <div class="tier-title-row">
+                  <strong>Priority / VIP Access</strong>
+                  <span class="tier-stock-badge" id="tierStockVip">90 left</span>
+                </div>
+                <span>Fast-track entry + VIP lounge access</span>
               </div>
-              <div class="tier-price" id="tierPriceVip">£72</div>
+              <div class="tier-price" id="tierPriceVip">£72.00</div>
             </div>
-          </div> -->
+            <div class="ticket-tier" data-tier="VVIP" data-price-mult="2.2">
+              <div class="tier-info">
+                <div class="tier-title-row">
+                  <strong>VVIP / Front Row</strong>
+                  <span class="tier-stock-badge" id="tierStockVvip">30 left</span>
+                </div>
+                <span>Front-row seating + backstage meet &amp; greet</span>
+              </div>
+              <div class="tier-price" id="tierPriceVvip">£99.00</div>
+            </div>
+          </div>
 
           <div class="quantity-selector">
-            <p class="booking-stock-info" id="bookingStockInfo"></p>
             <span class="field-label">Number of Tickets</span>
             <div class="qty-stepper">
               <button type="button" class="qty-btn" id="qtyMinus" aria-label="Decrease quantity">−</button>
@@ -241,7 +252,6 @@
           <button type="button" class="btn btn-primary btn-block" id="btnConfirmBooking">
             Proceed to Checkout
           </button>
-          <p class="booking-guarantee">🔒 100% Buyer Guarantee • Instant Delivery to Email</p>
         </div>
       </div>
     </div>

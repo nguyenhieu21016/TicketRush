@@ -29,6 +29,12 @@ class Event(Base):
 
     total_tickets = Column(Integer, nullable=False)
     available_tickets = Column(Integer, nullable=False)
+    standard_tickets = Column(Integer, nullable=False, default=180, server_default="180")
+    standard_available = Column(Integer, nullable=False, default=180, server_default="180")
+    vip_tickets = Column(Integer, nullable=False, default=90, server_default="90")
+    vip_available = Column(Integer, nullable=False, default=90, server_default="90")
+    vvip_tickets = Column(Integer, nullable=False, default=30, server_default="30")
+    vvip_available = Column(Integer, nullable=False, default=30, server_default="30")
 
     price = Column(Numeric(10, 2), nullable=False)
     currency = Column(
@@ -64,6 +70,13 @@ class Booking(Base):
         Integer,
         ForeignKey("events.id", ondelete="RESTRICT"),
         nullable=False
+    )
+
+    ticket_tier = Column(
+        Enum("STANDARD", "VIP", "VVIP", name="booking_ticket_tier"),
+        nullable=False,
+        default="STANDARD",
+        server_default=text("'STANDARD'")
     )
 
     buyer_name = Column(String(100), nullable=False)
@@ -119,6 +132,13 @@ class Ticket(Base):
         Integer,
         ForeignKey("bookings.id", ondelete="RESTRICT"),
         nullable=False
+    )
+
+    ticket_tier = Column(
+        Enum("STANDARD", "VIP", "VVIP", name="ticket_tier"),
+        nullable=False,
+        default="STANDARD",
+        server_default=text("'STANDARD'")
     )
 
     status = Column(

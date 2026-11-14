@@ -79,11 +79,14 @@ def _build_ticket_email(
     message["From"] = sender
     message["To"] = booking.buyer_email
 
-    ticket_codes = "\n".join(f"- {ticket.ticket_code}" for ticket in tickets)
+    ticket_codes = "\n".join(
+        f"- {ticket.ticket_code} ({ticket.ticket_tier})" for ticket in tickets
+    )
     message.set_content(
         f"Hello {booking.buyer_name},\n\n"
         f"Your booking for {event.name} is confirmed.\n"
         f"Booking code: {booking.booking_code}\n"
+        f"Ticket tier: {booking.ticket_tier}\n"
         f"Event date: {event.event_date}\n"
         f"Venue: {event.venue}\n\n"
         "Your individual ticket QR codes are attached as PNG images. "
