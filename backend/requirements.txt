@@ -6,3 +6,4 @@ python-dotenv
 email-validator
 bcrypt
 pyjwt
+qrcode[pil]

@@ -286,7 +286,7 @@ function bindEvents() {
       closeAllModals();
 
       showToast(
-        `Booking confirmed! Code: ${result.booking_code}`
+        `Booking confirmed! Code: ${result.booking_code}. QR tickets will be emailed to ${result.buyer_email}.`
       );
 
       // Refresh events from Backend
@@ -592,6 +592,7 @@ function renderAuthUI() {
         <span>Hi, <strong>${displayName}</strong></span>
       </div>
       <button type="button" class="btn btn-outline" id="btnMyTickets">My tickets</button>
+      ${state.currentUser.role === 'ADMIN' ? '<a href="admin.html" class="btn btn-outline" id="btnAdmin">⚙️ Admin</a>' : ''}
       <button class="btn btn-outline btn-logout" id="btnLogout">Log out</button>
     `;
 

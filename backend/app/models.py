@@ -39,6 +39,13 @@ class Event(Base):
 
     event_date = Column(DateTime, nullable=False)
 
+    status = Column(
+        Enum("ACTIVE", "CANCELLED", name="event_status"),
+        nullable=False,
+        default="ACTIVE",
+        server_default=text("'ACTIVE'")
+    )
+
 
 class Booking(Base):
     __tablename__ = "bookings"

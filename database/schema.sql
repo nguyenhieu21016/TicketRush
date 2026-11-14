@@ -8,6 +8,7 @@ USE ticketrush_db;
 /* Delete these lines before pushing to rds */
 DROP TABLE IF EXISTS tickets;
 DROP TABLE IF EXISTS bookings;
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS events;
 
 SET NAMES utf8mb4;
@@ -24,6 +25,7 @@ CREATE TABLE events (
   price DECIMAL(10, 2) NOT NULL DEFAULT 0.00 COMMENT 'Giá vé (ví dụ: 45.00)',
   currency VARCHAR(10) NOT NULL DEFAULT (CONVERT(0xC2A3 USING utf8mb4)) COMMENT 'Đơn vị tiền tệ',
   event_date DATETIME NOT NULL COMMENT 'Ngày giờ diễn ra sự kiện',
+  status ENUM('ACTIVE', 'CANCELLED') NOT NULL DEFAULT 'ACTIVE' COMMENT 'Trạng thái sự kiện',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm tạo sự kiện',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -37,9 +39,21 @@ CREATE TABLE events (
   INDEX idx_events_date (event_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE users (
+  id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Mã user (Khóa chính)',
+  email VARCHAR(255) NOT NULL UNIQUE COMMENT 'Email đăng nhập duy nhất',
+  password_hash VARCHAR(255) NOT NULL COMMENT 'Mật khẩu đã mã hóa',
+  full_name VARCHAR(100) NOT NULL COMMENT 'Họ và tên người dùng',
+  role ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER' COMMENT 'Vai trò tài khoản',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm tạo tài khoản',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_users_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE bookings (
   id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Mã booking (Khóa chính)',
   booking_code VARCHAR(40) NOT NULL UNIQUE COMMENT 'Mã booking duy nhất (UUID hoặc tự sinh)',
+  user_id INT NULL COMMENT 'Khóa ngoại liên kết tới bảng users',
   event_id INT NOT NULL COMMENT 'Khóa ngoại liên kết tới bảng events',
   buyer_name VARCHAR(100) NOT NULL COMMENT 'Tên người đặt vé',
   buyer_email VARCHAR(255) NOT NULL COMMENT 'Email người đặt vé',
@@ -50,6 +64,11 @@ CREATE TABLE bookings (
   status ENUM('CONFIRMED', 'CANCELLED') NOT NULL DEFAULT 'CONFIRMED' COMMENT 'Trạng thái booking',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm đặt vé',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_bookings_user
+    FOREIGN KEY (user_id) REFERENCES users(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE,
 
   CONSTRAINT fk_bookings_event
     FOREIGN KEY (event_id) REFERENCES events(id)
@@ -64,6 +83,7 @@ CREATE TABLE bookings (
         AND total_amount >= 0
     ),
 
+  INDEX idx_bookings_user (user_id),
   INDEX idx_bookings_event (event_id),
   INDEX idx_bookings_email (buyer_email),
   INDEX idx_bookings_created_at (created_at)
@@ -86,24 +106,6 @@ CREATE TABLE tickets (
   INDEX idx_tickets_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE users (
-  id INT AUTO_INCREMENT PRIMARY KEY COMMENT 'Mã user (Khóa chính)',
-  email VARCHAR(255) NOT NULL UNIQUE COMMENT 'Email đăng nhập duy nhất',
-  password_hash VARCHAR(255) NOT NULL COMMENT 'Mật khẩu đã mã hóa',
-  full_name VARCHAR(100) NOT NULL COMMENT 'Họ và tên người dùng',
-  role ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER' COMMENT 'Vai trò tài khoản',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm tạo tài khoản',
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_users_email (email)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-ALTER TABLE bookings 
-ADD COLUMN user_id INT NULL AFTER booking_code,
-ADD CONSTRAINT fk_bookings_user
-  FOREIGN KEY (user_id) REFERENCES users(id)
-  ON DELETE SET NULL
-  ON UPDATE CASCADE,
-ADD INDEX idx_bookings_user (user_id);
 
 
 -- Dữ liệu tét
