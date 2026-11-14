@@ -151,5 +151,53 @@ INSERT INTO events (
 
 (6, 'Late Night Jazz Sessions', 'Jazz & Soul', "Ronnie Scott's, Soho",
  'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=800&q=80',
- 300, 300, 180, 180, 90, 90, 30, 30, 32.00, '2026-11-14 22:30:00');
+ 300, 300, 180, 180, 90, 90, 30, 30, 32.00, '2026-11-14 22:30:00'),
+
+(7, 'Fred again.. Live at The O2', 'Electronic / Live', 'The O2 Arena, London',
+ 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 65.00, '2026-11-16 20:00:00'),
+
+(8, 'Hamilton — West End Musical', 'Theatre / Musical', 'Victoria Palace Theatre, London',
+ 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 75.00, '2026-11-18 19:30:00'),
+
+(9, 'Chelsea vs. Manchester City', 'Premier League', 'Stamford Bridge, London',
+ 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 92.00, '2026-11-21 17:30:00'),
+
+(10, 'London Symphony Orchestra: Beethoven 9', 'Classical / Orchestra', 'Barbican Centre, London',
+ 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 42.00, '2026-11-22 19:00:00'),
+
+(11, 'Arctic Monkeys — Unplugged Night', 'Indie Rock', 'Royal Albert Hall, London',
+ 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 78.00, '2026-11-25 20:00:00'),
+
+(12, 'Boiler Room London: Warehouse Session', 'Club / Techno', 'Printworks, Rotherhithe',
+ 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 39.00, '2026-11-27 22:00:00'),
+
+(13, 'Little Simz — Homecoming Tour', 'Hip-Hop / Rap', 'O2 Academy Brixton, London',
+ 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 48.00, '2026-11-29 19:30:00'),
+
+(14, 'Coldplay: Music of the Spheres', 'Pop / Stadium Tour', 'Wembley Stadium, London',
+ 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 95.00, '2026-12-02 19:00:00'),
+
+(15, 'Disclosure — Friends & Family', 'Electronic / House', 'KOKO, Camden',
+ 'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 44.00, '2026-12-04 21:30:00'),
+
+(16, 'Foil, Arms and Hog: Skittish', 'Stand-up Comedy', 'Eventim Apollo, Hammersmith',
+ 'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 28.00, '2026-12-06 20:00:00'),
+
+(17, 'Peggy Gou — All Night Long', 'Electronic / DJ Set', 'Fabric, Farringdon',
+ 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 52.00, '2026-12-11 23:00:00'),
+
+(18, 'Florence + The Machine: Symphony of Lungs', 'Indie Pop / Live', 'Royal Albert Hall, London',
+ 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?auto=format&fit=crop&w=800&q=80',
+ 300, 300, 180, 180, 90, 90, 30, 30, 68.00, '2026-12-15 19:30:00');
 

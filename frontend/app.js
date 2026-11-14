@@ -534,17 +534,16 @@ function updatePaginationUI(currentPage, totalPages) {
 
   // Build page buttons matching `< 1 2 3 … 8 >`
   let html = '';
-  if (totalPages <= 4) {
+  if (totalPages <= 7) {
     for (let p = 1; p <= totalPages; p++) {
       html += `<button type="button" class="page-btn ${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
     }
   } else {
-    // Exact screenshot styling: 1, 2, 3, …, 8
     html += `<button type="button" class="page-btn ${1 === currentPage ? 'active' : ''}" data-page="1">1</button>`;
     html += `<button type="button" class="page-btn ${2 === currentPage ? 'active' : ''}" data-page="2">2</button>`;
     html += `<button type="button" class="page-btn ${3 === currentPage ? 'active' : ''}" data-page="3">3</button>`;
     html += `<span class="page-ellipsis">…</span>`;
-    html += `<button type="button" class="page-btn ${8 === currentPage ? 'active' : ''}" data-page="8">8</button>`;
+    html += `<button type="button" class="page-btn ${totalPages === currentPage ? 'active' : ''}" data-page="${totalPages}">${totalPages}</button>`;
   }
 
   elements.pageNumbers.innerHTML = html;
