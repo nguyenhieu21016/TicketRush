@@ -10,7 +10,7 @@ let EVENTS_DATA = [];
 
 async function fetchEventsFromAPI() {
   try {
-    const response = await fetch('http://localhost:8000/api/events/');
+    const response = await fetch("http://localhost:8000/api/events/");
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -19,7 +19,7 @@ async function fetchEventsFromAPI() {
     const data = await response.json();
 
     // Convert API data into frontend format
-    EVENTS_DATA = (data.events || []).map(event => {
+    EVENTS_DATA = (data.events || []).map((event) => {
       const eventDate = new Date(event.event_date);
 
       return {
@@ -40,23 +40,26 @@ async function fetchEventsFromAPI() {
         vvipAvailable: Number(event.vvip_available ?? 30),
 
         dateRank: eventDate.getTime(),
-        month: eventDate.toLocaleDateString('en-US', {
-          month: 'short'
-        }).toUpperCase(),
-        day: String(eventDate.getDate()).padStart(2, '0'),
-        weekday: eventDate.toLocaleDateString('en-US', {
-          weekday: 'short'
-        }).toUpperCase(),
+        month: eventDate
+          .toLocaleDateString("en-US", {
+            month: "short",
+          })
+          .toUpperCase(),
+        day: String(eventDate.getDate()).padStart(2, "0"),
+        weekday: eventDate
+          .toLocaleDateString("en-US", {
+            weekday: "short",
+          })
+          .toUpperCase(),
 
         price: Number(event.price),
-        currency: event.currency
+        currency: event.currency,
       };
     });
 
     state.totalEventsCount = data.total || EVENTS_DATA.length;
-
   } catch (error) {
-    console.error('Failed to fetch events:', error);
+    console.error("Failed to fetch events:", error);
     EVENTS_DATA = [];
     state.totalEventsCount = 0;
   }
@@ -64,98 +67,109 @@ async function fetchEventsFromAPI() {
   render();
 }
 
-
 // Ticket Tiers Configuration
 const TIER_CONFIG = {
-  STANDARD: { label: 'Standard Admission', multiplier: 1.0, stockKey: 'standardAvailable' },
-  VIP:      { label: 'Priority / VIP Access', multiplier: 1.6, stockKey: 'vipAvailable' },
-  VVIP:     { label: 'VVIP / Front Row', multiplier: 2.2, stockKey: 'vvipAvailable' }
+  STANDARD: {
+    label: "Standard Admission",
+    multiplier: 1.0,
+    stockKey: "standardAvailable",
+  },
+  VIP: {
+    label: "Priority / VIP Access",
+    multiplier: 1.6,
+    stockKey: "vipAvailable",
+  },
+  VVIP: {
+    label: "VVIP / Front Row",
+    multiplier: 2.2,
+    stockKey: "vvipAvailable",
+  },
 };
 
 // App State
 const state = {
-  searchQuery: '',
-  sortOrder: 'soonest', // 'soonest', 'price-low', 'price-high', 'name'
+  searchQuery: "",
+  sortOrder: "soonest", // 'soonest', 'price-low', 'price-high', 'name'
   currentPage: 1,
   pageSize: 6,
   totalEventsCount: 48, // Visual match for the 48 total in London
   selectedEvent: null,
-  selectedTier: 'STANDARD',
+  selectedTier: "STANDARD",
   ticketTierMultiplier: 1.0,
   ticketQuantity: 1,
   // bookingFee: 2.50
-  currentUser: JSON.parse(localStorage.getItem('currentUser') || 'null'),
-  authToken: localStorage.getItem('authToken') || null
+  currentUser: JSON.parse(localStorage.getItem("currentUser") || "null"),
+  authToken: localStorage.getItem("authToken") || null,
 };
 
 // DOM Elements
 const elements = {
-  eventsGrid: document.getElementById('eventsGrid'),
-  emptyState: document.getElementById('emptyState'),
-  searchInput: document.getElementById('searchInput'),
-  searchClearBtn: document.getElementById('searchClearBtn'),
-  shortcutBadge: document.getElementById('shortcutBadge'),
-  resetSearchBtn: document.getElementById('resetSearchBtn'),
-  sortDropdown: document.getElementById('sortDropdown'),
-  sortDropdownTrigger: document.getElementById('sortDropdownTrigger'),
-  sortDropdownMenu: document.getElementById('sortDropdownMenu'),
-  currentSortText: document.getElementById('currentSortText'),
-  eventsCountBadge: document.getElementById('eventsCountBadge'),
-  resultsSummary: document.getElementById('resultsSummary'),
-  prevPageBtn: document.getElementById('prevPageBtn'),
-  nextPageBtn: document.getElementById('nextPageBtn'),
-  pageNumbers: document.getElementById('pageNumbers'),
-  bookingStockInfo: document.getElementById('bookingStockInfo'),
-  eventsView: document.getElementById('eventsView'),
-  purchasedTicketsView: document.getElementById('purchasedTicketsView'),
-  purchasedTicketsList: document.getElementById('purchasedTicketsList'),
-  ticketsStatus: document.getElementById('ticketsStatus'),
-  backToEvents: document.getElementById('backToEvents'),
+  eventsGrid: document.getElementById("eventsGrid"),
+  emptyState: document.getElementById("emptyState"),
+  searchInput: document.getElementById("searchInput"),
+  searchClearBtn: document.getElementById("searchClearBtn"),
+  shortcutBadge: document.getElementById("shortcutBadge"),
+  resetSearchBtn: document.getElementById("resetSearchBtn"),
+  sortDropdown: document.getElementById("sortDropdown"),
+  sortDropdownTrigger: document.getElementById("sortDropdownTrigger"),
+  sortDropdownMenu: document.getElementById("sortDropdownMenu"),
+  currentSortText: document.getElementById("currentSortText"),
+  eventsCountBadge: document.getElementById("eventsCountBadge"),
+  resultsSummary: document.getElementById("resultsSummary"),
+  prevPageBtn: document.getElementById("prevPageBtn"),
+  nextPageBtn: document.getElementById("nextPageBtn"),
+  pageNumbers: document.getElementById("pageNumbers"),
+  bookingStockInfo: document.getElementById("bookingStockInfo"),
+  eventsView: document.getElementById("eventsView"),
+  purchasedTicketsView: document.getElementById("purchasedTicketsView"),
+  purchasedTicketsList: document.getElementById("purchasedTicketsList"),
+  ticketsStatus: document.getElementById("ticketsStatus"),
+  backToEvents: document.getElementById("backToEvents"),
 
   // Modals
-  bookingModalBackdrop: document.getElementById('bookingModalBackdrop'),
-  closeBookingModal: document.getElementById('closeBookingModal'),
-  bookingImg: document.getElementById('bookingImg'),
-  bookingDate: document.getElementById('bookingDate'),
-  bookingEventTitle: document.getElementById('bookingEventTitle'),
-  bookingVenue: document.getElementById('bookingVenue'),
-  ticketTierSelection: document.getElementById('ticketTierSelection'),
-  tierPriceStandard: document.getElementById('tierPriceStandard'),
-  tierPriceVip: document.getElementById('tierPriceVip'),
-  tierPriceVvip: document.getElementById('tierPriceVvip'),
-  tierStockStandard: document.getElementById('tierStockStandard'),
-  tierStockVip: document.getElementById('tierStockVip'),
-  tierStockVvip: document.getElementById('tierStockVvip'),
-  qtyMinus: document.getElementById('qtyMinus'),
-  qtyPlus: document.getElementById('qtyPlus'),
-  qtyVal: document.getElementById('qtyVal'),
-  summarySubtotal: document.getElementById('summarySubtotal'),
-  summaryTotal: document.getElementById('summaryTotal'),
-  bookingCustomerInfo: document.getElementById('bookingCustomerInfo'),
-  bookingUserAvatar: document.getElementById('bookingUserAvatar'),
-  bookingUserName: document.getElementById('bookingUserName'),
-  bookingUserEmail: document.getElementById('bookingUserEmail'),
-  btnConfirmBooking: document.getElementById('btnConfirmBooking'),
+  bookingModalBackdrop: document.getElementById("bookingModalBackdrop"),
+  closeBookingModal: document.getElementById("closeBookingModal"),
+  bookingImg: document.getElementById("bookingImg"),
+  bookingDate: document.getElementById("bookingDate"),
+  bookingEventTitle: document.getElementById("bookingEventTitle"),
+  bookingVenue: document.getElementById("bookingVenue"),
+  ticketTierSelection: document.getElementById("ticketTierSelection"),
+  tierPriceStandard: document.getElementById("tierPriceStandard"),
+  tierPriceVip: document.getElementById("tierPriceVip"),
+  tierPriceVvip: document.getElementById("tierPriceVvip"),
+  tierStockStandard: document.getElementById("tierStockStandard"),
+  tierStockVip: document.getElementById("tierStockVip"),
+  tierStockVvip: document.getElementById("tierStockVvip"),
+  qtyMinus: document.getElementById("qtyMinus"),
+  qtyPlus: document.getElementById("qtyPlus"),
+  qtyVal: document.getElementById("qtyVal"),
+  summarySubtotal: document.getElementById("summarySubtotal"),
+  summaryTotal: document.getElementById("summaryTotal"),
+  bookingCustomerInfo: document.getElementById("bookingCustomerInfo"),
+  bookingUserAvatar: document.getElementById("bookingUserAvatar"),
+  bookingUserName: document.getElementById("bookingUserName"),
+  bookingUserEmail: document.getElementById("bookingUserEmail"),
+  btnConfirmBooking: document.getElementById("btnConfirmBooking"),
 
   // Auth
-  authActions: document.getElementById('authActions'),
-  authModalBackdrop: document.getElementById('authModalBackdrop'),
-  closeAuthModal: document.getElementById('closeAuthModal'),
-  btnLogIn: document.getElementById('btnLogIn'),
-  btnSignUp: document.getElementById('btnSignUp'),
-  tabLogIn: document.getElementById('tabLogIn'),
-  tabSignUp: document.getElementById('tabSignUp'),
-  authSubmitBtn: document.getElementById('authSubmitBtn'),
-  authFooterText: document.getElementById('authFooterText'),
-  authForm: document.getElementById('authForm'),
-  fullNameGroup: document.getElementById('fullNameGroup'),
-  authFullName: document.getElementById('authFullName'),
-  authEmail: document.getElementById('authEmail'),
-  authPassword: document.getElementById('authPassword'),
+  authActions: document.getElementById("authActions"),
+  authModalBackdrop: document.getElementById("authModalBackdrop"),
+  closeAuthModal: document.getElementById("closeAuthModal"),
+  btnLogIn: document.getElementById("btnLogIn"),
+  btnSignUp: document.getElementById("btnSignUp"),
+  tabLogIn: document.getElementById("tabLogIn"),
+  tabSignUp: document.getElementById("tabSignUp"),
+  authSubmitBtn: document.getElementById("authSubmitBtn"),
+  authFooterText: document.getElementById("authFooterText"),
+  authForm: document.getElementById("authForm"),
+  fullNameGroup: document.getElementById("fullNameGroup"),
+  authFullName: document.getElementById("authFullName"),
+  authEmail: document.getElementById("authEmail"),
+  authPassword: document.getElementById("authPassword"),
 
   // Toast
-  toastNotification: document.getElementById('toastNotification'),
-  toastMessage: document.getElementById('toastMessage')
+  toastNotification: document.getElementById("toastNotification"),
+  toastMessage: document.getElementById("toastMessage"),
 };
 
 // Initialize Application
@@ -170,16 +184,16 @@ function init() {
 // Event Bindings
 function bindEvents() {
   // Search
-  elements.searchInput.addEventListener('input', handleSearchInput);
-  elements.searchClearBtn.addEventListener('click', handleSearchClear);
-  elements.resetSearchBtn.addEventListener('click', handleSearchClear);
+  elements.searchInput.addEventListener("input", handleSearchInput);
+  elements.searchClearBtn.addEventListener("click", handleSearchClear);
+  elements.resetSearchBtn.addEventListener("click", handleSearchClear);
 
   // Global Keyboard Shortcuts (⌘K / Ctrl+K, Escape)
-  window.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+  window.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       elements.searchInput.focus();
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       closeAllModals();
       closeDropdown();
       if (document.activeElement === elements.searchInput) {
@@ -189,65 +203,70 @@ function bindEvents() {
   });
 
   // Sort Dropdown
-  elements.sortDropdownTrigger.addEventListener('click', (e) => {
+  elements.sortDropdownTrigger.addEventListener("click", (e) => {
     e.stopPropagation();
-    elements.sortDropdown.classList.toggle('open');
+    elements.sortDropdown.classList.toggle("open");
   });
 
-  elements.sortDropdownMenu.querySelectorAll('.dropdown-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const sortType = item.getAttribute('data-sort');
-      setSortOrder(sortType, item.textContent.trim());
+  elements.sortDropdownMenu
+    .querySelectorAll(".dropdown-item")
+    .forEach((item) => {
+      item.addEventListener("click", () => {
+        const sortType = item.getAttribute("data-sort");
+        setSortOrder(sortType, item.textContent.trim());
+      });
     });
-  });
 
-  document.addEventListener('click', () => {
+  document.addEventListener("click", () => {
     closeDropdown();
   });
 
   // Pagination
-  elements.prevPageBtn.addEventListener('click', () => {
+  elements.prevPageBtn.addEventListener("click", () => {
     if (state.currentPage > 1) {
       setPage(state.currentPage - 1);
     }
   });
 
-  elements.nextPageBtn.addEventListener('click', () => {
-    const totalPages = Math.ceil(getFilteredEvents().length / state.pageSize) || 1;
+  elements.nextPageBtn.addEventListener("click", () => {
+    const totalPages =
+      Math.ceil(getFilteredEvents().length / state.pageSize) || 1;
     if (state.currentPage < totalPages) {
       setPage(state.currentPage + 1);
     }
   });
 
-  elements.backToEvents.addEventListener('click', showEventsView);
+  elements.backToEvents.addEventListener("click", showEventsView);
 
-  const brandLogo = document.querySelector('.brand-logo');
+  const brandLogo = document.querySelector(".brand-logo");
   if (brandLogo) {
-    brandLogo.addEventListener('click', (e) => {
+    brandLogo.addEventListener("click", (e) => {
       e.preventDefault();
       showEventsView();
     });
   }
-  window.addEventListener('hashchange', handleRouteHash);
-  window.addEventListener('popstate', handleRouteHash);
+  window.addEventListener("hashchange", handleRouteHash);
+  window.addEventListener("popstate", handleRouteHash);
 
   // Booking Modal
-  elements.closeBookingModal.addEventListener('click', closeAllModals);
-  elements.bookingModalBackdrop.addEventListener('click', (e) => {
+  elements.closeBookingModal.addEventListener("click", closeAllModals);
+  elements.bookingModalBackdrop.addEventListener("click", (e) => {
     if (e.target === elements.bookingModalBackdrop) closeAllModals();
   });
 
   if (elements.ticketTierSelection) {
-    elements.ticketTierSelection.querySelectorAll('.ticket-tier').forEach(tierEl => {
-      tierEl.addEventListener('click', () => {
-        const tierKey = tierEl.getAttribute('data-tier');
-        if (tierEl.classList.contains('sold-out')) return;
-        selectTicketTier(tierKey);
+    elements.ticketTierSelection
+      .querySelectorAll(".ticket-tier")
+      .forEach((tierEl) => {
+        tierEl.addEventListener("click", () => {
+          const tierKey = tierEl.getAttribute("data-tier");
+          if (tierEl.classList.contains("sold-out")) return;
+          selectTicketTier(tierKey);
+        });
       });
-    });
   }
 
-  elements.qtyMinus.addEventListener('click', () => {
+  elements.qtyMinus.addEventListener("click", () => {
     if (state.ticketQuantity > 1) {
       state.ticketQuantity--;
       elements.qtyVal.textContent = state.ticketQuantity;
@@ -255,11 +274,8 @@ function bindEvents() {
     }
   });
 
-  elements.qtyPlus.addEventListener('click', () => {
-    const maxQuantity = Math.min(
-      10,
-      getSelectedTierAvailable()
-    );
+  elements.qtyPlus.addEventListener("click", () => {
+    const maxQuantity = Math.min(10, getSelectedTierAvailable());
 
     if (state.ticketQuantity < maxQuantity) {
       state.ticketQuantity++;
@@ -268,18 +284,17 @@ function bindEvents() {
     }
   });
 
-
-  elements.btnConfirmBooking.addEventListener('click', async () => {
+  elements.btnConfirmBooking.addEventListener("click", async () => {
     // 1. Kiểm tra đăng nhập
     if (!state.currentUser || !state.authToken) {
       closeAllModals();
-      openAuthModal('login');
-      showToast('Please log in to book tickets.');
+      openAuthModal("login");
+      showToast("Please log in to book tickets.");
       return;
     }
 
     if (!state.selectedEvent) {
-      showToast('Please select an event first.');
+      showToast("Please select an event first.");
       return;
     }
 
@@ -287,7 +302,7 @@ function bindEvents() {
 
     // Prevent duplicate submissions
     button.disabled = true;
-    button.textContent = 'Processing...';
+    button.textContent = "Processing...";
 
     try {
       // 2. Prepare booking request (Lấy thẳng tên và email từ tài khoản đang đăng nhập)
@@ -296,69 +311,64 @@ function bindEvents() {
         ticket_tier: state.selectedTier,
         buyer_name: state.currentUser.full_name,
         buyer_email: state.currentUser.email,
-        quantity: state.ticketQuantity
+        quantity: state.ticketQuantity,
       };
 
       // 3. Send request to Backend kèm Bearer Token
-      const response = await fetch(
-        'http://localhost:8000/api/bookings/',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${state.authToken}`
-          },
-          body: JSON.stringify(bookingData)
-        }
-      );
+      const response = await fetch("http://localhost:8000/api/bookings/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${state.authToken}`,
+        },
+        body: JSON.stringify(bookingData),
+      });
 
       const result = await response.json();
 
       // 4. Handle API errors
       if (!response.ok) {
         const detail = Array.isArray(result.detail)
-          ? result.detail.map(error => error.msg).join(', ')
+          ? result.detail.map((error) => error.msg).join(", ")
           : result.detail;
 
         throw new Error(detail || `HTTP ${response.status}`);
       }
 
       // 5. Booking successful
-      console.log('Booking response:', result);
+      console.log("Booking response:", result);
 
       closeAllModals();
 
       showToast(
-        `Booking confirmed! Code: ${result.booking_code}. QR tickets will be emailed to ${result.buyer_email}.`
+        `Booking confirmed! Code: ${result.booking_code}. QR tickets will be emailed to ${result.buyer_email}.`,
       );
 
       // Refresh events from Backend
       await fetchEventsFromAPI();
-
     } catch (error) {
-      console.error('Booking failed:', error);
-      showToast(error.message || 'Unable to complete booking.');
+      console.error("Booking failed:", error);
+      showToast(error.message || "Unable to complete booking.");
     } finally {
       button.disabled = false;
-      button.textContent = 'Proceed to Checkout';
+      button.textContent = "Proceed to Checkout";
     }
   });
 
-
   // Auth Modals
-  elements.closeAuthModal.addEventListener('click', closeAllModals);
-  elements.authModalBackdrop.addEventListener('click', (e) => {
+  elements.closeAuthModal.addEventListener("click", closeAllModals);
+  elements.authModalBackdrop.addEventListener("click", (e) => {
     if (e.target === elements.authModalBackdrop) closeAllModals();
   });
 
-  elements.tabLogIn.addEventListener('click', () => setAuthTab('login'));
-  elements.tabSignUp.addEventListener('click', () => setAuthTab('signup'));
-  elements.authForm.addEventListener('submit', handleAuthSubmit);
+  elements.tabLogIn.addEventListener("click", () => setAuthTab("login"));
+  elements.tabSignUp.addEventListener("click", () => setAuthTab("signup"));
+  elements.authForm.addEventListener("submit", handleAuthSubmit);
 }
 
 // Dropdown Helper
 function closeDropdown() {
-  elements.sortDropdown.classList.remove('open');
+  elements.sortDropdown.classList.remove("open");
 }
 
 // Search Handler
@@ -367,22 +377,22 @@ function handleSearchInput(e) {
   state.currentPage = 1;
 
   if (state.searchQuery.length > 0) {
-    elements.searchClearBtn.style.display = 'block';
-    elements.shortcutBadge.style.opacity = '0';
+    elements.searchClearBtn.style.display = "block";
+    elements.shortcutBadge.style.opacity = "0";
   } else {
-    elements.searchClearBtn.style.display = 'none';
-    elements.shortcutBadge.style.opacity = '1';
+    elements.searchClearBtn.style.display = "none";
+    elements.shortcutBadge.style.opacity = "1";
   }
 
   render();
 }
 
 function handleSearchClear() {
-  elements.searchInput.value = '';
-  state.searchQuery = '';
+  elements.searchInput.value = "";
+  state.searchQuery = "";
   state.currentPage = 1;
-  elements.searchClearBtn.style.display = 'none';
-  elements.shortcutBadge.style.opacity = '1';
+  elements.searchClearBtn.style.display = "none";
+  elements.shortcutBadge.style.opacity = "1";
   elements.searchInput.focus();
   render();
 }
@@ -392,9 +402,11 @@ function setSortOrder(sortKey, sortLabel) {
   state.sortOrder = sortKey;
   elements.currentSortText.textContent = sortLabel;
 
-  elements.sortDropdownMenu.querySelectorAll('.dropdown-item').forEach(btn => {
-    btn.classList.toggle('active', btn.getAttribute('data-sort') === sortKey);
-  });
+  elements.sortDropdownMenu
+    .querySelectorAll(".dropdown-item")
+    .forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-sort") === sortKey);
+    });
 
   closeDropdown();
   render();
@@ -406,21 +418,22 @@ function getFilteredEvents() {
 
   // Filter by query
   if (state.searchQuery) {
-    list = list.filter(evt =>
-      evt.title.toLowerCase().includes(state.searchQuery) ||
-      evt.venue.toLowerCase().includes(state.searchQuery) ||
-      evt.category.toLowerCase().includes(state.searchQuery)
+    list = list.filter(
+      (evt) =>
+        evt.title.toLowerCase().includes(state.searchQuery) ||
+        evt.venue.toLowerCase().includes(state.searchQuery) ||
+        evt.category.toLowerCase().includes(state.searchQuery),
     );
   }
 
   // Sort
-  if (state.sortOrder === 'soonest') {
+  if (state.sortOrder === "soonest") {
     list.sort((a, b) => a.dateRank - b.dateRank);
-  } else if (state.sortOrder === 'price-low') {
+  } else if (state.sortOrder === "price-low") {
     list.sort((a, b) => a.price - b.price);
-  } else if (state.sortOrder === 'price-high') {
+  } else if (state.sortOrder === "price-high") {
     list.sort((a, b) => b.price - a.price);
-  } else if (state.sortOrder === 'name') {
+  } else if (state.sortOrder === "name") {
     list.sort((a, b) => a.title.localeCompare(b.title));
   }
 
@@ -431,7 +444,7 @@ function getFilteredEvents() {
 function setPage(pageNum) {
   state.currentPage = pageNum;
   render();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // Render DOM
@@ -440,31 +453,35 @@ function render() {
   const totalFiltered = filtered.length;
 
   // Header Counter Badge
-  elements.eventsCountBadge.textContent = state.searchQuery ? totalFiltered : state.totalEventsCount;
+  elements.eventsCountBadge.textContent = state.searchQuery
+    ? totalFiltered
+    : state.totalEventsCount;
 
   // Empty state handling
   if (totalFiltered === 0) {
-    elements.eventsGrid.innerHTML = '';
-    elements.emptyState.style.display = 'block';
-    elements.resultsSummary.textContent = 'Showing 0 events';
+    elements.eventsGrid.innerHTML = "";
+    elements.emptyState.style.display = "block";
+    elements.resultsSummary.textContent = "Showing 0 events";
     updatePaginationUI(0, 0);
     return;
   }
 
-  elements.emptyState.style.display = 'none';
+  elements.emptyState.style.display = "none";
 
   // Pagination slice
   const startIndex = (state.currentPage - 1) * state.pageSize;
   const pageItems = filtered.slice(startIndex, startIndex + state.pageSize);
 
   // Render Cards
-  elements.eventsGrid.innerHTML = pageItems.map(evt => createEventCardHTML(evt)).join('');
+  elements.eventsGrid.innerHTML = pageItems
+    .map((evt) => createEventCardHTML(evt))
+    .join("");
 
   // Re-attach book button listeners
-  elements.eventsGrid.querySelectorAll('.btn-book').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const eventId = e.currentTarget.getAttribute('data-id');
-      const eventData = EVENTS_DATA.find(item => item.id === Number(eventId));
+  elements.eventsGrid.querySelectorAll(".btn-book").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const eventId = e.currentTarget.getAttribute("data-id");
+      const eventData = EVENTS_DATA.find((item) => item.id === Number(eventId));
       if (eventData) {
         openBookingModal(eventData);
       }
@@ -474,7 +491,9 @@ function render() {
   // Update Result text
   const startNum = startIndex + 1;
   const endNum = Math.min(startIndex + pageItems.length, totalFiltered);
-  const totalLondonCount = state.searchQuery ? totalFiltered : state.totalEventsCount;
+  const totalLondonCount = state.searchQuery
+    ? totalFiltered
+    : state.totalEventsCount;
   elements.resultsSummary.textContent = `Showing ${startNum}–${endNum} of ${totalLondonCount} events in London`;
 
   // Update Pagination Controls
@@ -504,8 +523,8 @@ function createEventCardHTML(evt) {
 
         <h3 class="event-title">${evt.title}</h3>
 
-        <div class="event-stock ${evt.availableTickets === 0 ? 'sold-out' : ''}">
-          ${evt.availableTickets > 0 ? `${evt.availableTickets} tickets left` : 'Sold out'}
+        <div class="event-stock ${evt.availableTickets === 0 ? "sold-out" : ""}">
+          ${evt.availableTickets > 0 ? `${evt.availableTickets} tickets left` : "Sold out"}
         </div>
 
         <div class="card-footer">
@@ -514,8 +533,8 @@ function createEventCardHTML(evt) {
             <span class="price-amount">${evt.currency}${evt.price}</span>
           </div>
 
-          <button type="button" class="btn-book" data-id="${evt.id}" aria-label="Book tickets for ${evt.title}" ${evt.availableTickets <= 0 ? 'disabled' : ''}>
-            <span>${evt.availableTickets <= 0 ? 'Sold out' : 'Book tickets'}</span>
+          <button type="button" class="btn-book" data-id="${evt.id}" aria-label="Book tickets for ${evt.title}" ${evt.availableTickets <= 0 ? "disabled" : ""}>
+            <span>${evt.availableTickets <= 0 ? "Sold out" : "Book tickets"}</span>
             <svg class="arrow-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="7" y1="17" x2="17" y2="7"></line>
               <polyline points="7 7 17 7 17 17"></polyline>
@@ -533,24 +552,24 @@ function updatePaginationUI(currentPage, totalPages) {
   elements.nextPageBtn.disabled = currentPage >= totalPages;
 
   // Build page buttons matching `< 1 2 3 … 8 >`
-  let html = '';
+  let html = "";
   if (totalPages <= 7) {
     for (let p = 1; p <= totalPages; p++) {
-      html += `<button type="button" class="page-btn ${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+      html += `<button type="button" class="page-btn ${p === currentPage ? "active" : ""}" data-page="${p}">${p}</button>`;
     }
   } else {
-    html += `<button type="button" class="page-btn ${1 === currentPage ? 'active' : ''}" data-page="1">1</button>`;
-    html += `<button type="button" class="page-btn ${2 === currentPage ? 'active' : ''}" data-page="2">2</button>`;
-    html += `<button type="button" class="page-btn ${3 === currentPage ? 'active' : ''}" data-page="3">3</button>`;
+    html += `<button type="button" class="page-btn ${1 === currentPage ? "active" : ""}" data-page="1">1</button>`;
+    html += `<button type="button" class="page-btn ${2 === currentPage ? "active" : ""}" data-page="2">2</button>`;
+    html += `<button type="button" class="page-btn ${3 === currentPage ? "active" : ""}" data-page="3">3</button>`;
     html += `<span class="page-ellipsis">…</span>`;
-    html += `<button type="button" class="page-btn ${totalPages === currentPage ? 'active' : ''}" data-page="${totalPages}">${totalPages}</button>`;
+    html += `<button type="button" class="page-btn ${totalPages === currentPage ? "active" : ""}" data-page="${totalPages}">${totalPages}</button>`;
   }
 
   elements.pageNumbers.innerHTML = html;
 
-  elements.pageNumbers.querySelectorAll('.page-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const page = parseInt(btn.getAttribute('data-page'), 10);
+  elements.pageNumbers.querySelectorAll(".page-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const page = parseInt(btn.getAttribute("data-page"), 10);
       setPage(page);
     });
   });
@@ -568,9 +587,11 @@ function selectTicketTier(tierKey) {
   state.ticketTierMultiplier = cfg.multiplier;
 
   if (elements.ticketTierSelection) {
-    elements.ticketTierSelection.querySelectorAll('.ticket-tier').forEach(el => {
-      el.classList.toggle('active', el.getAttribute('data-tier') === tierKey);
-    });
+    elements.ticketTierSelection
+      .querySelectorAll(".ticket-tier")
+      .forEach((el) => {
+        el.classList.toggle("active", el.getAttribute("data-tier") === tierKey);
+      });
   }
 
   const tierStock = getSelectedTierAvailable();
@@ -586,25 +607,24 @@ function selectTicketTier(tierKey) {
 function openBookingModal(eventData) {
   // 1. Kiểm tra đăng nhập trước khi cho mở modal đặt vé
   if (!state.currentUser || !state.authToken) {
-    openAuthModal('login');
-    showToast('Please log in or sign up to book tickets.');
+    openAuthModal("login");
+    showToast("Please log in or sign up to book tickets.");
     return;
   }
 
   // Check stock first
   if (eventData.availableTickets <= 0) {
-    showToast('Sorry, this event is sold out.');
+    showToast("Sorry, this event is sold out.");
     return;
   }
 
   state.selectedEvent = eventData;
   state.ticketQuantity = 1;
 
-  elements.qtyVal.textContent = '1';
+  elements.qtyVal.textContent = "1";
 
-  elements.bookingImg.src = eventData.image || '';
-  elements.bookingDate.textContent =
-    `${eventData.month} ${eventData.day} • ${eventData.weekday}`;
+  elements.bookingImg.src = eventData.image || "";
+  elements.bookingDate.textContent = `${eventData.month} ${eventData.day} • ${eventData.weekday}`;
 
   elements.bookingEventTitle.textContent = eventData.title;
   elements.bookingVenue.textContent = eventData.venue;
@@ -613,21 +633,40 @@ function openBookingModal(eventData) {
   const basePrice = Number(eventData.price);
   const currency = eventData.currency;
   const tierMeta = [
-    { key: 'STANDARD', priceEl: elements.tierPriceStandard, stockEl: elements.tierStockStandard, stock: eventData.standardAvailable },
-    { key: 'VIP',      priceEl: elements.tierPriceVip,      stockEl: elements.tierStockVip,      stock: eventData.vipAvailable },
-    { key: 'VVIP',     priceEl: elements.tierPriceVvip,     stockEl: elements.tierStockVvip,     stock: eventData.vvipAvailable }
+    {
+      key: "STANDARD",
+      priceEl: elements.tierPriceStandard,
+      stockEl: elements.tierStockStandard,
+      stock: eventData.standardAvailable,
+    },
+    {
+      key: "VIP",
+      priceEl: elements.tierPriceVip,
+      stockEl: elements.tierStockVip,
+      stock: eventData.vipAvailable,
+    },
+    {
+      key: "VVIP",
+      priceEl: elements.tierPriceVvip,
+      stockEl: elements.tierStockVvip,
+      stock: eventData.vvipAvailable,
+    },
   ];
 
   tierMeta.forEach(({ key, priceEl, stockEl, stock }) => {
-    const tierPrice = (Math.round(basePrice * TIER_CONFIG[key].multiplier * 100) / 100).toFixed(2);
+    const tierPrice = (
+      Math.round(basePrice * TIER_CONFIG[key].multiplier * 100) / 100
+    ).toFixed(2);
     if (priceEl) priceEl.textContent = `${currency}${tierPrice}`;
     if (stockEl) {
-      stockEl.textContent = stock > 0 ? `${stock} left` : 'Sold out';
-      stockEl.classList.toggle('sold-out', stock <= 0);
+      stockEl.textContent = stock > 0 ? `${stock} left` : "Sold out";
+      stockEl.classList.toggle("sold-out", stock <= 0);
     }
-    const cardEl = elements.ticketTierSelection?.querySelector(`.ticket-tier[data-tier="${key}"]`);
+    const cardEl = elements.ticketTierSelection?.querySelector(
+      `.ticket-tier[data-tier="${key}"]`,
+    );
     if (cardEl) {
-      cardEl.classList.toggle('sold-out', stock <= 0);
+      cardEl.classList.toggle("sold-out", stock <= 0);
     }
   });
 
@@ -639,30 +678,35 @@ function openBookingModal(eventData) {
     elements.bookingUserEmail.textContent = state.currentUser.email;
   }
   if (elements.bookingUserAvatar) {
-    elements.bookingUserAvatar.textContent = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
+    elements.bookingUserAvatar.textContent = (
+      state.currentUser.full_name || "U"
+    )
+      .charAt(0)
+      .toUpperCase();
   }
 
-  const defaultTier = (tierMeta.find(t => t.stock > 0) || tierMeta[0]).key;
+  const defaultTier = (tierMeta.find((t) => t.stock > 0) || tierMeta[0]).key;
   selectTicketTier(defaultTier);
 
-  elements.bookingModalBackdrop.classList.add('active');
+  elements.bookingModalBackdrop.classList.add("active");
 }
 
 // Update calculated order totals
 function updateBookingTotals() {
   if (!state.selectedEvent) return;
 
-  const unitPrice = Math.round(Number(state.selectedEvent.price) * state.ticketTierMultiplier * 100) / 100;
+  const unitPrice =
+    Math.round(
+      Number(state.selectedEvent.price) * state.ticketTierMultiplier * 100,
+    ) / 100;
   const quantity = state.ticketQuantity;
 
   const subtotal = unitPrice * quantity;
   const total = subtotal;
 
-  elements.summarySubtotal.textContent =
-    `${state.selectedEvent.currency}${subtotal.toFixed(2)}`;
+  elements.summarySubtotal.textContent = `${state.selectedEvent.currency}${subtotal.toFixed(2)}`;
 
-  elements.summaryTotal.textContent =
-    `${state.selectedEvent.currency}${total.toFixed(2)}`;
+  elements.summaryTotal.textContent = `${state.selectedEvent.currency}${total.toFixed(2)}`;
 }
 
 // Render Auth buttons / User Profile in Header
@@ -670,9 +714,14 @@ function renderAuthUI() {
   if (!elements.authActions) return;
 
   if (state.currentUser && state.authToken) {
-    const initial = (state.currentUser.full_name || 'U').charAt(0).toUpperCase();
-    const nameParts = (state.currentUser.full_name || 'User').trim().split(/\s+/);
-    const displayName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+    const initial = (state.currentUser.full_name || "U")
+      .charAt(0)
+      .toUpperCase();
+    const nameParts = (state.currentUser.full_name || "User")
+      .trim()
+      .split(/\s+/);
+    const displayName =
+      nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
 
     elements.authActions.innerHTML = `
       <div class="user-greeting">
@@ -680,43 +729,59 @@ function renderAuthUI() {
         <span>Hi, <strong>${displayName}</strong></span>
       </div>
       <button type="button" class="btn btn-outline" id="btnMyTickets">My tickets</button>
-      ${state.currentUser.role === 'ADMIN' ? '<a href="admin.html" class="btn btn-outline" id="btnAdmin">Dashboard</a>' : ''}
+      ${state.currentUser.role === "ADMIN" ? '<a href="admin.html" class="btn btn-outline" id="btnAdmin">Dashboard</a>' : ""}
       <button class="btn btn-outline btn-logout" id="btnLogout">Log out</button>
     `;
 
-    document.getElementById('btnMyTickets').addEventListener('click', showPurchasedTickets);
-    document.getElementById('btnLogout').addEventListener('click', handleLogout);
+    document
+      .getElementById("btnMyTickets")
+      .addEventListener("click", showPurchasedTickets);
+    document
+      .getElementById("btnLogout")
+      .addEventListener("click", handleLogout);
   } else {
     elements.authActions.innerHTML = `
       <button class="btn btn-ghost" id="btnLogIn">Log in</button>
       <button class="btn btn-primary" id="btnSignUp">Sign up</button>
     `;
 
-    document.getElementById('btnLogIn').addEventListener('click', () => openAuthModal('login'));
-    document.getElementById('btnSignUp').addEventListener('click', () => openAuthModal('signup'));
+    document
+      .getElementById("btnLogIn")
+      .addEventListener("click", () => openAuthModal("login"));
+    document
+      .getElementById("btnSignUp")
+      .addEventListener("click", () => openAuthModal("signup"));
   }
 }
 
 function handleLogout() {
   state.currentUser = null;
   state.authToken = null;
-  localStorage.removeItem('currentUser');
-  localStorage.removeItem('authToken');
+  localStorage.removeItem("currentUser");
+  localStorage.removeItem("authToken");
   showEventsView();
   renderAuthUI();
-  showToast('You have been logged out.');
+  showToast("You have been logged out.");
 }
 
 function showEventsView() {
   elements.eventsView.hidden = false;
   elements.purchasedTicketsView.hidden = true;
-  if (window.location.hash === '#my-tickets') {
-    history.pushState(null, '', window.location.pathname + window.location.search);
+  if (window.location.hash === "#my-tickets") {
+    history.pushState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
   }
 }
 
 function handleRouteHash() {
-  if (window.location.hash === '#my-tickets' && state.currentUser && state.authToken) {
+  if (
+    window.location.hash === "#my-tickets" &&
+    state.currentUser &&
+    state.authToken
+  ) {
     showPurchasedTickets();
   } else {
     showEventsView();
@@ -725,30 +790,30 @@ function handleRouteHash() {
 
 async function showPurchasedTickets() {
   if (!state.currentUser || !state.authToken) {
-    openAuthModal('login');
-    showToast('Please log in to view your tickets.');
+    openAuthModal("login");
+    showToast("Please log in to view your tickets.");
     return;
   }
 
-  if (window.location.hash !== '#my-tickets') {
-    history.pushState(null, '', '#my-tickets');
+  if (window.location.hash !== "#my-tickets") {
+    history.pushState(null, "", "#my-tickets");
   }
 
   elements.eventsView.hidden = true;
   elements.purchasedTicketsView.hidden = false;
-  elements.ticketsStatus.textContent = 'Loading your tickets...';
-  elements.purchasedTicketsList.innerHTML = '';
+  elements.ticketsStatus.textContent = "Loading your tickets...";
+  elements.purchasedTicketsList.innerHTML = "";
 
   try {
-    const response = await fetch('http://localhost:8000/api/bookings/me', {
-      headers: { 'Authorization': `Bearer ${state.authToken}` }
+    const response = await fetch("http://localhost:8000/api/bookings/me", {
+      headers: { Authorization: `Bearer ${state.authToken}` },
     });
     const result = await response.json();
 
     if (!response.ok) {
       if (response.status === 401) {
         handleLogout();
-        openAuthModal('login');
+        openAuthModal("login");
         return;
       }
       throw new Error(result.detail || `HTTP ${response.status}`);
@@ -756,23 +821,27 @@ async function showPurchasedTickets() {
 
     renderPurchasedTickets(result.bookings || []);
   } catch (error) {
-    console.error('Failed to fetch purchased tickets:', error);
-    elements.ticketsStatus.textContent = error.message || 'Unable to load your tickets.';
+    console.error("Failed to fetch purchased tickets:", error);
+    elements.ticketsStatus.textContent =
+      error.message || "Unable to load your tickets.";
   }
 }
 
 function renderPurchasedTickets(bookings) {
   if (bookings.length === 0) {
-    elements.ticketsStatus.textContent = 'You have not purchased any tickets yet.';
+    elements.ticketsStatus.textContent =
+      "You have not purchased any tickets yet.";
     return;
   }
 
-  elements.ticketsStatus.textContent = `${bookings.length} booking${bookings.length === 1 ? '' : 's'}`;
-  elements.purchasedTicketsList.innerHTML = bookings.map(booking => {
-    const bookingTier = (booking.ticket_tier || 'STANDARD').toUpperCase();
-    const tickets = (booking.tickets || []).map(ticket => {
-      const ticketTier = (ticket.ticket_tier || bookingTier).toUpperCase();
-      return `
+  elements.ticketsStatus.textContent = `${bookings.length} booking${bookings.length === 1 ? "" : "s"}`;
+  elements.purchasedTicketsList.innerHTML = bookings
+    .map((booking) => {
+      const bookingTier = (booking.ticket_tier || "STANDARD").toUpperCase();
+      const tickets = (booking.tickets || [])
+        .map((ticket) => {
+          const ticketTier = (ticket.ticket_tier || bookingTier).toUpperCase();
+          return `
         <li class="ticket-code-item">
           <code>${escapeHTML(ticket.ticket_code)}</code>
           <div class="ticket-code-meta">
@@ -781,13 +850,14 @@ function renderPurchasedTickets(bookings) {
           </div>
         </li>
       `;
-    }).join('');
-    const eventDate = new Date(booking.event_date).toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    });
+        })
+        .join("");
+      const eventDate = new Date(booking.event_date).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
 
-    return `
+      return `
       <article class="purchased-ticket-card">
         <div class="purchased-ticket-heading">
           <div>
@@ -798,53 +868,60 @@ function renderPurchasedTickets(bookings) {
           <span class="booking-status">${escapeHTML(booking.status)}</span>
         </div>
         <div class="purchased-ticket-summary">
-          <span>${booking.quantity} ticket${booking.quantity === 1 ? '' : 's'} · <span class="tier-badge tier-badge-${escapeHTML(bookingTier.toLowerCase())}">${escapeHTML(bookingTier)}</span></span>
+          <span>${booking.quantity} ticket${booking.quantity === 1 ? "" : "s"} · <span class="tier-badge tier-badge-${escapeHTML(bookingTier.toLowerCase())}">${escapeHTML(bookingTier)}</span></span>
           <strong>${escapeHTML(booking.currency)}${Number(booking.total_amount).toFixed(2)}</strong>
         </div>
         <ul class="ticket-code-list">${tickets}</ul>
       </article>
     `;
-  }).join('');
+    })
+    .join("");
 }
 
 function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, character => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  })[character]);
+  return String(value).replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character],
+  );
 }
 
 // Auth Modal
 function openAuthModal(mode) {
   setAuthTab(mode);
-  elements.authModalBackdrop.classList.add('active');
+  elements.authModalBackdrop.classList.add("active");
 }
 
 function setAuthTab(mode) {
-  if (mode === 'login') {
-    elements.tabLogIn.classList.add('active');
-    elements.tabSignUp.classList.remove('active');
-    if (elements.fullNameGroup) elements.fullNameGroup.style.display = 'none';
-    if (elements.authFullName) elements.authFullName.removeAttribute('required');
-    elements.authSubmitBtn.textContent = 'Log in to TicketRush';
+  if (mode === "login") {
+    elements.tabLogIn.classList.add("active");
+    elements.tabSignUp.classList.remove("active");
+    if (elements.fullNameGroup) elements.fullNameGroup.style.display = "none";
+    if (elements.authFullName)
+      elements.authFullName.removeAttribute("required");
+    elements.authSubmitBtn.textContent = "Log in to TicketRush";
     elements.authFooterText.innerHTML = `Don't have an account? <a href="#" id="switchAuthLink">Sign up free</a>`;
   } else {
-    elements.tabSignUp.classList.add('active');
-    elements.tabLogIn.classList.remove('active');
-    if (elements.fullNameGroup) elements.fullNameGroup.style.display = 'block';
-    if (elements.authFullName) elements.authFullName.setAttribute('required', 'true');
-    elements.authSubmitBtn.textContent = 'Create free account';
+    elements.tabSignUp.classList.add("active");
+    elements.tabLogIn.classList.remove("active");
+    if (elements.fullNameGroup) elements.fullNameGroup.style.display = "block";
+    if (elements.authFullName)
+      elements.authFullName.setAttribute("required", "true");
+    elements.authSubmitBtn.textContent = "Create free account";
     elements.authFooterText.innerHTML = `Already have an account? <a href="#" id="switchAuthLink">Log in</a>`;
   }
 
-  const switchLink = document.getElementById('switchAuthLink');
+  const switchLink = document.getElementById("switchAuthLink");
   if (switchLink) {
-    switchLink.addEventListener('click', (e) => {
+    switchLink.addEventListener("click", (e) => {
       e.preventDefault();
-      setAuthTab(mode === 'login' ? 'signup' : 'login');
+      setAuthTab(mode === "login" ? "signup" : "login");
     });
   }
 }
@@ -852,93 +929,100 @@ function setAuthTab(mode) {
 async function handleAuthSubmit(e) {
   if (e) e.preventDefault();
 
-  const isLogIn = elements.tabLogIn.classList.contains('active');
+  const isLogIn = elements.tabLogIn.classList.contains("active");
   const email = elements.authEmail.value.trim();
   const password = elements.authPassword.value;
-  const fullName = elements.authFullName ? elements.authFullName.value.trim() : '';
+  const fullName = elements.authFullName
+    ? elements.authFullName.value.trim()
+    : "";
 
   if (!email || !password || (!isLogIn && !fullName)) {
-    showToast('Please fill in all required fields.');
+    showToast("Please fill in all required fields.");
     return;
   }
 
   const submitBtn = elements.authSubmitBtn;
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Processing...';
+  submitBtn.textContent = "Processing...";
 
   try {
     if (!isLogIn) {
       // 1. Sign Up (Register)
-      const regRes = await fetch('http://localhost:8000/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const regRes = await fetch("http://localhost:8000/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           full_name: fullName,
           email: email,
-          password: password
-        })
+          password: password,
+        }),
       });
 
       const regData = await regRes.json();
       if (!regRes.ok) {
-        throw new Error(regData.detail || 'Registration failed.');
+        throw new Error(regData.detail || "Registration failed.");
       }
     }
 
     // 2. Log In
-    const loginRes = await fetch('http://localhost:8000/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const loginRes = await fetch("http://localhost:8000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: email,
-        password: password
-      })
+        password: password,
+      }),
     });
 
     const loginData = await loginRes.json();
     if (!loginRes.ok) {
-      throw new Error(loginData.detail || 'Login failed.');
+      throw new Error(loginData.detail || "Login failed.");
     }
 
     // Lưu token & user vào state + localStorage
     state.authToken = loginData.access_token;
     state.currentUser = loginData.user;
-    localStorage.setItem('authToken', state.authToken);
-    localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+    localStorage.setItem("authToken", state.authToken);
+    localStorage.setItem("currentUser", JSON.stringify(state.currentUser));
 
     renderAuthUI();
     closeAllModals();
-    showToast(isLogIn ? `Welcome back, ${state.currentUser.full_name}!` : `Account created! Welcome, ${state.currentUser.full_name}!`);
+    showToast(
+      isLogIn
+        ? `Welcome back, ${state.currentUser.full_name}!`
+        : `Account created! Welcome, ${state.currentUser.full_name}!`,
+    );
 
     // Reset form
     elements.authForm.reset();
-
   } catch (error) {
-    console.error('Auth error:', error);
-    showToast(error.message || 'Authentication failed.');
+    console.error("Auth error:", error);
+    showToast(error.message || "Authentication failed.");
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = isLogIn ? 'Log in to TicketRush' : 'Create free account';
+    submitBtn.textContent = isLogIn
+      ? "Log in to TicketRush"
+      : "Create free account";
   }
 }
 
 // Modal Dismiss
 function closeAllModals() {
-  elements.bookingModalBackdrop.classList.remove('active');
-  elements.authModalBackdrop.classList.remove('active');
+  elements.bookingModalBackdrop.classList.remove("active");
+  elements.authModalBackdrop.classList.remove("active");
 }
 
 // Toast System
 let toastTimer = null;
 function showToast(message) {
   elements.toastMessage.textContent = message;
-  elements.toastNotification.classList.add('active');
+  elements.toastNotification.classList.add("active");
 
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => {
-    elements.toastNotification.classList.remove('active');
+    elements.toastNotification.classList.remove("active");
   }, 3500);
 }
 
 // Start
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener("DOMContentLoaded", init);

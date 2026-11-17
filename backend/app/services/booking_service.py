@@ -13,6 +13,16 @@ from app.schemas import (
     BookingResponse,
     TicketResponse
 )
+from app.config import get_settings
+
+settings = get_settings()
+
+# Import Redis service only if needed
+try:
+    from app.services.redis_service import reserve_seats, release_seats
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 
 TIER_MULTIPLIERS: dict[str, Decimal] = {
@@ -41,48 +51,66 @@ def create_booking(
         )
     tier_col, tier_col_name = tier_col_map[tier]
 
-    with db.begin_nested():
+    # Step 1: Reserve seats in Redis first (fast path)
+    redis_reserved = False
+    if REDIS_AVAILABLE:
+        try:
+            redis_reserved = reserve_seats(
+                event_id=booking_data.event_id,
+                tier=tier,
+                quantity=booking_data.quantity
+            )
+            if not redis_reserved:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Not enough {tier} tickets available"
+                )
+        except Exception:
+            pass
 
-        # 1. Find the event
-        event = db.query(Event).filter(
-            Event.id == booking_data.event_id
-        ).first()
+    try:
+        with db.begin_nested():
 
-        if event is None:
-            raise HTTPException(
-                status_code=404,
-                detail="Event not found"
+            # 1. Find the event
+            event = db.query(Event).filter(
+                Event.id == booking_data.event_id
+            ).first()
+
+            if event is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Event not found"
+                )
+
+            if event.status == "CANCELLED":
+                raise HTTPException(
+                    status_code=400,
+                    detail="This event has been cancelled and tickets cannot be booked"
+                )
+
+            # 2. Atomically decrease available tickets (both total and tier stock)
+            result = db.execute(
+                update(Event)
+                .where(
+                    Event.id == booking_data.event_id,
+                    Event.status == "ACTIVE",
+                    Event.available_tickets >= booking_data.quantity,
+                    tier_col >= booking_data.quantity
+                )
+                .values(
+                    available_tickets=(
+                        Event.available_tickets - booking_data.quantity
+                    ),
+                    **{tier_col_name: tier_col - booking_data.quantity}
+                )
+                .execution_options(synchronize_session=False)
             )
 
-        if event.status == "CANCELLED":
-            raise HTTPException(
-                status_code=400,
-                detail="This event has been cancelled and tickets cannot be booked"
-            )
-
-        # 2. Atomically decrease available tickets (both total and tier stock)
-        result = db.execute(
-            update(Event)
-            .where(
-                Event.id == booking_data.event_id,
-                Event.status == "ACTIVE",
-                Event.available_tickets >= booking_data.quantity,
-                tier_col >= booking_data.quantity
-            )
-            .values(
-                available_tickets=(
-                    Event.available_tickets - booking_data.quantity
-                ),
-                **{tier_col_name: tier_col - booking_data.quantity}
-            )
-            .execution_options(synchronize_session=False)
-        )
-
-        if result.rowcount != 1:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Not enough {tier} tickets available"
-            )
+            if result.rowcount != 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Not enough {tier} tickets available"
+                )
 
         # 3. Calculate the booking amount based on ticket tier
         multiplier = TIER_MULTIPLIERS.get(tier, Decimal("1.0"))
@@ -158,8 +186,17 @@ def create_booking(
             ]
         )
 
-    db.commit()
-    return response
+        db.commit()
+        return response
+
+    except Exception as e:
+        if redis_reserved and REDIS_AVAILABLE:
+            release_seats(
+                event_id=booking_data.event_id,
+                tier=tier,
+                quantity=booking_data.quantity
+            )
+        raise
 
 
 def get_user_bookings(db: Session, user: User) -> BookingListResponse:

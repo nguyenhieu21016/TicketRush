@@ -8,6 +8,16 @@ from app.services.booking_service import create_booking, get_user_bookings
 from app.services.ticket_email_service import send_booking_tickets_in_background
 from app.core.deps import get_current_user
 from app.models import User
+from app.config import get_settings
+
+settings = get_settings()
+
+# Import SQS service if available
+try:
+    from app.services.sqs_service import queue_ticket_generation
+    SQS_AVAILABLE = True
+except ImportError:
+    SQS_AVAILABLE = False
 
 
 router = APIRouter(
@@ -24,7 +34,13 @@ def create_booking_route(
     user: User = Depends(get_current_user)
 ):
     booking = create_booking(db, booking_data, user=user)
-    background_tasks.add_task(send_booking_tickets_in_background, booking.id)
+
+    # Choose async method: SQS (cloud) or BackgroundTasks (local)
+    if settings.USE_SQS and SQS_AVAILABLE:
+        queue_ticket_generation(booking.id)
+    else:
+        background_tasks.add_task(send_booking_tickets_in_background, booking.id)
+
     return booking
 
 
