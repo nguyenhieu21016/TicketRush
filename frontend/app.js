@@ -3,6 +3,8 @@
  * Vanilla JavaScript (ES6+)
  */
 
+const API_BASE = "http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com/api";
+
 // Event Dataset — ban đầu để rỗng để lấy từ API backend
 let EVENTS_DATA = [];
 
@@ -10,7 +12,7 @@ let EVENTS_DATA = [];
 
 async function fetchEventsFromAPI() {
   try {
-    const response = await fetch("http://localhost:8000/api/events/");
+    const response = await fetch(`${API_BASE}/events/`);
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -315,7 +317,7 @@ function bindEvents() {
       };
 
       // 3. Send request to Backend kèm Bearer Token
-      const response = await fetch("http://localhost:8000/api/bookings/", {
+      const response = await fetch(`${API_BASE}/bookings/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -805,7 +807,7 @@ async function showPurchasedTickets() {
   elements.purchasedTicketsList.innerHTML = "";
 
   try {
-    const response = await fetch("http://localhost:8000/api/bookings/me", {
+    const response = await fetch(`${API_BASE}/bookings/me`, {
       headers: { Authorization: `Bearer ${state.authToken}` },
     });
     const result = await response.json();
@@ -948,7 +950,7 @@ async function handleAuthSubmit(e) {
   try {
     if (!isLogIn) {
       // 1. Sign Up (Register)
-      const regRes = await fetch("http://localhost:8000/api/auth/register", {
+      const regRes = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -965,7 +967,7 @@ async function handleAuthSubmit(e) {
     }
 
     // 2. Log In
-    const loginRes = await fetch("http://localhost:8000/api/auth/login", {
+    const loginRes = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

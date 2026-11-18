@@ -2,7 +2,7 @@
    TicketRush - Dashboard JS
    ======================================================== */
 
-const API = 'http://127.0.0.1:8000/api';
+const API = 'http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com/api';
 
 // Auth Storage
 function getToken() { return localStorage.getItem('authToken'); }
