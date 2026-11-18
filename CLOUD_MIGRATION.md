@@ -259,64 +259,204 @@ aws s3 ls s3://ticketrush-qr-codes-<random>/
 
 **Lưu bucket name** để dùng trong environment variables sau này!
 
-### 2.5 SQS Queue (Hoàng)
-```bash
-aws sqs create-queue \
-  --queue-name ticketrush-ticket-generation \
-  --attributes VisibilityTimeout=60,MessageRetentionPeriod=3600
-```
+### 2.5 SQS Queue (Hoàng) - Console
 
-### 2.6 Lambda Function (Hoàng)
+#### Bước 1: Tạo SQS Queue
+1. **SQS → Queues → Create queue**
+2. **Type**: Standard (không cần FIFO cho ticket generation)
+3. **Name**: `ticketrush-ticket-generation`
+4. **Configuration**:
+   - Visibility timeout: 60 seconds
+   - Message retention period: 1 hour (3600 seconds)
+   - Delivery delay: 0 seconds
+   - Maximum message size: 256 KB
+   - Receive message wait time: 0 seconds (short polling)
+5. **Access policy**: Keep default (only queue owner)
+6. **Encryption**: Disabled (optional, có thể enable để bảo mật)
+7. **Dead-letter queue**: Không cấu hình (optional, dùng cho retry failed messages)
+8. Click **Create queue**
+
+#### Bước 2: Copy Queue URL
+- Sau khi tạo xong, copy **URL** (dạng `https://sqs.ap-southeast-1.amazonaws.com/<account-id>/ticketrush-ticket-generation`)
+- Lưu lại để dùng trong environment variables
+
+### 2.6 Lambda Function (Hoàng) - Console
+
+#### Bước 1: Tạo IAM Role cho Lambda
+1. **IAM → Roles → Create role**
+2. **Trusted entity type**: AWS service
+3. **Use case**: Lambda → Click **Next**
+4. **Add permissions** (search và attach các policies sau):
+   - `AWSLambdaBasicExecutionRole` (CloudWatch Logs)
+   - `AWSLambdaSQSQueueExecutionRole` (đọc SQS messages)
+   - `AmazonS3FullAccess` (upload QR codes)
+   - `AmazonSESFullAccess` (send emails)
+   - `AmazonRDSDataFullAccess` (query database)
+5. **Role name**: `ticketrush-lambda-execution-role`
+6. Click **Create role**
+
+#### Bước 2: Package Lambda code
 ```bash
-# Package Lambda
 cd lambda
 pip install -r requirements.txt -t package/
 cp ticket_generator.py package/
-cd package && zip -r ../lambda.zip . && cd ..
-
-# Create Lambda
-aws lambda create-function \
-  --function-name ticketrush-ticket-generator \
-  --runtime python3.11 \
-  --role arn:aws:iam::<account>:role/lambda-execution-role \
-  --handler ticket_generator.lambda_handler \
-  --zip-file fileb://lambda.zip \
-  --timeout 60 \
-  --memory-size 512 \
-  --environment Variables="{DB_HOST=<rds-endpoint>,S3_BUCKET_NAME=ticketrush-qr-codes-<random>,AWS_REGION=us-east-1,...}"
-
-# Add SQS trigger
-aws lambda create-event-source-mapping \
-  --function-name ticketrush-ticket-generator \
-  --event-source-arn arn:aws:sqs:<region>:<account>:ticketrush-ticket-generation \
-  --batch-size 10
+cd package
+zip -r ../lambda-function.zip .
+cd ..
 ```
 
-### 2.7 SES Email (Hoàng)
-```bash
-# Verify sender email
-aws ses verify-email-identity --email-address noreply@yourdomain.com
+#### Bước 3: Tạo Lambda Function
+1. **Lambda → Functions → Create function**
+2. **Function name**: `ticketrush-ticket-generator`
+3. **Runtime**: Python 3.11
+4. **Architecture**: x86_64
+5. **Permissions**: Use an existing role → Chọn `ticketrush-lambda-execution-role`
+6. Click **Create function**
 
-# Request production access (if needed)
-# https://console.aws.amazon.com/ses/home#/account
+#### Bước 4: Upload code
+1. Trong function vừa tạo → Tab **Code**
+2. Click **Upload from** → **.zip file**
+3. Chọn file `lambda-function.zip` vừa tạo → Click **Save**
+
+#### Bước 5: Configure
+1. Tab **Configuration** → **General configuration** → Click **Edit**:
+   - Memory: 512 MB
+   - Timeout: 60 seconds
+   - Click **Save**
+
+2. Tab **Configuration** → **Environment variables** → Click **Edit** → Add:
+   ```
+   DB_HOST=<rds-endpoint>
+   DB_USER=admin
+   DB_PASSWORD=<rds-password>
+   DB_NAME=ticketrush_db
+   S3_BUCKET_NAME=ticketrush-qr-codes-<random>
+   AWS_REGION=ap-southeast-1
+   SES_FROM_EMAIL=noreply@yourdomain.com
+   ```
+   - Click **Save**
+
+#### Bước 6: Add SQS Trigger
+1. Tab **Configuration** → **Triggers** → Click **Add trigger**
+2. **Select a source**: SQS
+3. **SQS queue**: Chọn `ticketrush-ticket-generation`
+4. **Batch size**: 10
+5. **Batch window**: 0 seconds
+6. Click **Add**
+
+#### Bước 7: Test (optional)
+1. Tab **Test** → Create test event:
+```json
+{
+  "Records": [
+    {
+      "body": "{\"booking_id\": 1, \"action\": \"generate_tickets\"}"
+    }
+  ]
+}
 ```
+2. Click **Test** → Check logs để verify
+
+### 2.7 SES Email (Hoàng) - Console
+
+#### Bước 1: Verify Email Address
+1. **SES → Verified identities → Create identity**
+2. **Identity type**: Email address
+3. **Email address**: `noreply@yourdomain.com` (hoặc email bạn muốn dùng)
+4. Click **Create identity**
+5. **Check email**: AWS sẽ gửi verification email → Click link trong email để verify
+
+#### Bước 2: Test Email Sending (trong sandbox mode)
+1. Vào identity vừa verify → Tab **Send test email**
+2. **From address**: `noreply@yourdomain.com`
+3. **Scenario**: Custom
+4. **Subject**: Test TicketRush Email
+5. **Body**: Test message
+6. **To addresses**: Email của bạn (phải verify trước trong sandbox mode)
+7. Click **Send test email**
+
+#### Bước 3: Request Production Access (nếu cần gửi đến email chưa verify)
+1. **SES → Account dashboard** (sidebar trái)
+2. Nếu thấy banner **"Your account is in the sandbox"** → Click **Request production access**
+3. **Mail type**: Transactional
+4. **Website URL**: URL website của bạn (hoặc GitHub repo)
+5. **Use case description**: 
+   ```
+   Sending booking confirmation emails and QR code tickets 
+   for TicketRush event booking platform. Emails are only 
+   sent to users who successfully book tickets.
+   ```
+6. **Additional contacts**: Email của bạn
+7. Acknowledge compliance: ✅
+8. Click **Submit request**
+9. Đợi AWS approval (thường 1-2 ngày)
+
+**⚠️ Lưu ý:**
+- Trong **sandbox mode**: Chỉ gửi được đến email đã verify
+- Sau khi có **production access**: Gửi được đến bất kỳ email nào
+- Để demo/test: Verify thêm vài email test accounts là đủ
 
 ---
 
 ## Phase 3: EC2 Setup & Auto Scaling (Anh)
 
-### 3.1 Create AMI
-```bash
-# Launch temporary EC2 instance
-# SSH into instance and setup:
-sudo yum update -y
-sudo yum install -y python3.11 git
+### 3.1 Create AMI - Console
 
-# Clone repo and install
+#### Bước 1: Launch temporary EC2 instance
+1. **EC2 → Instances → Launch instances**
+2. **Name**: `ticketrush-setup-temp`
+3. **AMI**: Amazon Linux 2023 (hoặc Amazon Linux 2)
+4. **Instance type**: t3.micro (đủ cho setup)
+5. **Key pair**: Chọn hoặc tạo key pair mới (để SSH)
+6. **Network settings**:
+   - VPC: `vpc-0f8b9f335902973a1`
+   - Subnet: Chọn `tr-app-a` (private subnet)
+   - Auto-assign public IP: **Disable** (vì ở private subnet)
+7. **Security group**: Chọn `tr-app-sg`
+8. Click **Launch instance**
+
+#### Bước 2: SSH vào instance và setup
+**⚠️ Lưu ý**: Instance ở private subnet, cần SSH qua bastion host hoặc Session Manager
+
+**Option A: Dùng AWS Systems Manager Session Manager (khuyên dùng, không cần bastion)**
+1. **IAM → Roles → Create role**
+   - Trusted entity: AWS service → EC2
+   - Add permission: `AmazonSSMManagedInstanceCore`
+   - Role name: `ticketrush-ec2-ssm-role`
+2. **EC2 → Instance → Actions → Security → Modify IAM role**
+   - Chọn `ticketrush-ec2-ssm-role` → Update
+3. **EC2 → Instance → Connect → Session Manager → Connect**
+
+**Setup commands:**
+```bash
+# Update system
+sudo yum update -y
+sudo yum install -y python3.11 python3.11-pip git
+
+# Clone repo (thay <your-repo-url> bằng repo thực)
 cd /opt
 sudo git clone <your-repo-url> ticketrush
 cd ticketrush/backend
 sudo pip3.11 install -r requirements.txt
+
+# Create .env file (sẽ update sau khi có RDS/Redis endpoints)
+sudo tee /opt/ticketrush/backend/.env <<EOF
+DB_HOST=<will-update-later>
+DB_USER=admin
+DB_PASSWORD=<will-update-later>
+DB_NAME=ticketrush_db
+REDIS_HOST=<will-update-later>
+REDIS_PORT=6379
+S3_BUCKET_NAME=<will-update-later>
+SQS_QUEUE_URL=<will-update-later>
+SES_FROM_EMAIL=noreply@yourdomain.com
+AWS_REGION=ap-southeast-1
+USE_S3=true
+USE_SQS=true
+USE_SES=true
+APP_ENV=production
+DEBUG=false
+EOF
 
 # Create systemd service
 sudo tee /etc/systemd/system/ticketrush.service <<EOF
@@ -337,32 +477,95 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
+# Enable service (sẽ tự động start khi boot)
 sudo systemctl enable ticketrush
 
-# Create AMI from this instance
-aws ec2 create-image \
-  --instance-id i-xxxxx \
-  --name ticketrush-api-v1 \
-  --description "TicketRush FastAPI backend"
+# Test (optional - cần có database endpoints trước)
+# sudo systemctl start ticketrush
+# sudo systemctl status ticketrush
 ```
 
-### 3.2 Create Launch Template
-```bash
-aws ec2 create-launch-template \
-  --launch-template-name ticketrush-lt \
-  --version-description "v1" \
-  --launch-template-data '{
-    "ImageId":"ami-xxxxx",
-    "InstanceType":"t3.small",
-    "IamInstanceProfile":{"Arn":"arn:aws:iam::<account>:instance-profile/ticketrush-ec2-role"},
-    "SecurityGroupIds":["sg-xxxxx"],
-    "UserData":"<base64-encoded-startup-script>",
-    "TagSpecifications":[{
-      "ResourceType":"instance",
-      "Tags":[{"Key":"Name","Value":"ticketrush-api"}]
-    }]
-  }'
-```
+#### Bước 3: Create AMI từ instance
+1. **EC2 → Instances → Chọn instance `ticketrush-setup-temp`**
+2. **Actions → Image and templates → Create image**
+3. **Image name**: `ticketrush-api-v1`
+4. **Image description**: `TicketRush FastAPI backend with Python 3.11`
+5. **No reboot**: Bỏ chọn (để đảm bảo filesystem consistency)
+6. Click **Create image**
+7. Đợi AMI status: **Available** (5-10 phút)
+8. Copy **AMI ID** (dạng `ami-xxxxx`)
+
+#### Bước 4: Terminate temporary instance
+1. **EC2 → Instances → Chọn instance `ticketrush-setup-temp`**
+2. **Instance state → Terminate instance**
+
+### 3.2 Create Launch Template - Console
+
+#### Bước 1: Create IAM Instance Profile (nếu chưa có)
+1. **IAM → Roles → Create role**
+2. **Trusted entity type**: AWS service
+3. **Use case**: EC2 → Click **Next**
+4. **Add permissions** (attach các policies sau):
+   - `AmazonSSMManagedInstanceCore` (Session Manager access)
+   - `AmazonS3FullAccess` (upload QR codes)
+   - `AmazonSQSFullAccess` (send messages to queue)
+   - `AmazonSESFullAccess` (send emails - nếu backend gửi email)
+   - `CloudWatchAgentServerPolicy` (metrics và logs)
+5. **Role name**: `ticketrush-ec2-role`
+6. Click **Create role**
+
+#### Bước 2: Create Launch Template
+1. **EC2 → Launch Templates → Create launch template**
+2. **Launch template name**: `ticketrush-lt`
+3. **Template version description**: `v1 - Initial version`
+4. **Application and OS Images (AMI)**:
+   - Click **My AMIs** tab
+   - Chọn AMI vừa tạo: `ticketrush-api-v1`
+5. **Instance type**: `t3.small` (2 vCPU, 2 GB RAM - đủ cho production nhỏ)
+6. **Key pair**: Chọn key pair (hoặc "Don't include in launch template" nếu chỉ dùng Session Manager)
+7. **Network settings**:
+   - Subnet: **Don't include in launch template** (Auto Scaling sẽ chọn)
+   - Security groups: Chọn `tr-app-sg`
+8. **Advanced details**:
+   - IAM instance profile: Chọn `ticketrush-ec2-role`
+   - **User data** (paste script sau):
+   ```bash
+   #!/bin/bash
+   # Update environment file với actual endpoints
+   cat > /opt/ticketrush/backend/.env <<EOF
+   DB_HOST=YOUR_RDS_ENDPOINT
+   DB_USER=admin
+   DB_PASSWORD=YOUR_RDS_PASSWORD
+   DB_NAME=ticketrush_db
+   DB_PORT=3306
+   REDIS_HOST=YOUR_ELASTICACHE_ENDPOINT
+   REDIS_PORT=6379
+   REDIS_SSL=true
+   S3_BUCKET_NAME=YOUR_S3_BUCKET_NAME
+   USE_S3=true
+   SQS_QUEUE_URL=YOUR_SQS_QUEUE_URL
+   USE_SQS=true
+   SES_FROM_EMAIL=noreply@yourdomain.com
+   USE_SES=true
+   AWS_REGION=ap-southeast-1
+   APP_ENV=production
+   DEBUG=false
+   CORS_ORIGINS=http://YOUR_ALB_DNS,https://yourdomain.com
+   EOF
+   
+   # Start service
+   systemctl start ticketrush
+   systemctl status ticketrush
+   EOF
+   ```
+9. **Resource tags**:
+   - Add tag: Key = `Name`, Value = `ticketrush-api`
+10. Click **Create launch template**
+
+**⚠️ Lưu ý quan trọng:**
+- Sau khi có RDS, Redis, S3, SQS endpoints → **Cần update User data** trong launch template
+- Cách update: Launch Templates → Chọn template → **Actions → Modify template (Create new version)**
+- Auto Scaling Group sẽ tự động dùng version mới nhất (hoặc chỉ định version cụ thể)
 
 ### 3.3 Application Load Balancer (Console)
 
@@ -416,37 +619,73 @@ aws ec2 create-launch-template \
 - ALB listener nghe port **80** (public) → forward đến port 8000
 - Nếu `tr-app-tg` cũ đang dùng port 80, cần xóa và tạo lại với port 8000
 
-### 3.4 Auto Scaling Group
-```bash
-aws autoscaling create-auto-scaling-group \
-  --auto-scaling-group-name ticketrush-asg \
-  --launch-template LaunchTemplateName=ticketrush-lt,Version='$Latest' \
-  --min-size 2 \
-  --max-size 10 \
-  --desired-capacity 2 \
-  --target-group-arns arn:aws:elasticloadbalancing:... \
-  --vpc-zone-identifier "subnet-xxxxx,subnet-yyyyy" \
-  --health-check-type ELB \
-  --health-check-grace-period 300
+### 3.4 Auto Scaling Group - Console
 
-# Add scaling policy (target tracking)
-aws autoscaling put-scaling-policy \
-  --auto-scaling-group-name ticketrush-asg \
-  --policy-name target-tracking-alb-requests \
-  --policy-type TargetTrackingScaling \
-  --target-tracking-configuration file://scaling-policy.json
-```
+#### Bước 1: Create Auto Scaling Group
+1. **EC2 → Auto Scaling Groups → Create Auto Scaling group**
+2. **Choose launch template**:
+   - Auto Scaling group name: `ticketrush-asg`
+   - Launch template: Chọn `ticketrush-lt`
+   - Version: Latest
+   - Click **Next**
 
-**scaling-policy.json:**
-```json
-{
-  "TargetValue": 1000.0,
-  "PredefinedMetricSpecification": {
-    "PredefinedMetricType": "ALBRequestCountPerTarget",
-    "ResourceLabel": "app/ticketrush-alb/xxx/targetgroup/ticketrush-tg/yyy"
-  }
-}
-```
+3. **Network**:
+   - VPC: `vpc-0f8b9f335902973a1`
+   - Availability Zones and subnets: Chọn:
+     - `tr-app-a` (ap-southeast-1a)
+     - `tr-app-b` (ap-southeast-1b)
+   - Click **Next**
+
+4. **Load balancing**:
+   - Load balancing: ✅ **Attach to an existing load balancer**
+   - Choose from your load balancer target groups: Chọn `tr-app-tg`
+   - Health checks:
+     - ✅ Turn on Elastic Load Balancing health checks
+     - Health check grace period: `300` seconds
+   - Click **Next**
+
+5. **Group size and scaling**:
+   - **Desired capacity**: `2`
+   - **Minimum capacity**: `2`
+   - **Maximum capacity**: `10`
+   - **Automatic scaling**: ✅ Target tracking scaling policy
+     - Scaling policy name: `target-tracking-cpu`
+     - Metric type: **Average CPU utilization**
+     - Target value: `60` (scale khi CPU > 60%)
+   - Click **Next**
+
+6. **Add notifications** (Optional):
+   - Skip → Click **Next**
+
+7. **Add tags**:
+   - Add tag: Key = `Name`, Value = `ticketrush-api`
+   - Click **Next**
+
+8. **Review** → Click **Create Auto Scaling group**
+
+#### Bước 2: (Optional) Add ALB Request Count Scaling Policy
+Nếu muốn scale dựa trên request count thay vì CPU:
+
+1. **Auto Scaling Groups → Chọn `ticketrush-asg` → Tab Automatic scaling**
+2. Click **Create dynamic scaling policy**
+3. **Policy type**: Target tracking scaling
+4. **Scaling policy name**: `target-tracking-alb-requests`
+5. **Metric type**: **Application Load Balancer request count per target**
+6. **Target group**: Chọn `tr-app-tg`
+7. **Target value**: `1000` (1000 requests/target/minute)
+8. Click **Create**
+
+#### Bước 3: Verify
+1. **Auto Scaling Groups → ticketrush-asg → Tab Activity**
+   - Xem launch activities
+2. **EC2 → Instances**
+   - Sẽ thấy 2 instances mới với tag `ticketrush-api`
+   - Status: Running
+3. **Target Groups → tr-app-tg → Tab Targets**
+   - Sẽ thấy 2 targets đang register
+   - Đợi Health status: **healthy** (có thể mất 1-2 phút)
+4. **Test ALB endpoint**: `http://<alb-dns-name>/health`
+   - Nếu trả về 200 OK → Setup thành công!
 
 ---
 
