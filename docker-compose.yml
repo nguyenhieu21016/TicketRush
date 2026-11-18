@@ -4,17 +4,13 @@ services:
     container_name: ticketrush-db
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-ticketrush}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ticketrush_db}
       MYSQL_USER: ${MYSQL_USER:-ticketrush_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ticketrush_pass}
     volumes:
       - mysql_data:/var/lib/mysql
-      # Mount schema và migrations để tự động khởi tạo bảng theo đúng thứ tự
+      # schema.sql đã gộp đầy đủ bảng và cột mới nhất
       - ./database/schema.sql:/docker-entrypoint-initdb.d/000_schema.sql:ro
-      - ./database/migrations/001_create_bookings.sql:/docker-entrypoint-initdb.d/001_create_bookings.sql:ro
-      - ./database/migrations/002_update_tickets.sql:/docker-entrypoint-initdb.d/002_update_tickets.sql:ro
-      - ./database/migrations/003_add_event_status.sql:/docker-entrypoint-initdb.d/003_add_event_status.sql:ro
-      - ./database/migrations/004_add_ticket_tiers.sql:/docker-entrypoint-initdb.d/004_add_ticket_tiers.sql:ro
     healthcheck:
       test:
         [
