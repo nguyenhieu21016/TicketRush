@@ -31,7 +31,7 @@ class Settings:
     REDIS_SSL: bool = os.getenv("REDIS_SSL", "false").lower() == "true"
 
     # AWS S3 - for QR codes and event images
-    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+    AWS_REGION: str = os.getenv("AWS_REGION", "ap-southeast-1")
     S3_BUCKET_NAME: str | None = os.getenv("S3_BUCKET_NAME")
     S3_ENDPOINT_URL: str | None = os.getenv("S3_ENDPOINT_URL")  # for LocalStack/MinIO
     USE_S3: bool = os.getenv("USE_S3", "false").lower() == "true"

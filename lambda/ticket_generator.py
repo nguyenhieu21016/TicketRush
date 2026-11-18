@@ -38,8 +38,8 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # AWS clients
-s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'us-east-1'))
-ses_client = boto3.client('ses', region_name=os.getenv('AWS_REGION', 'us-east-1'))
+s3_client = boto3.client('s3', region_name=os.getenv('AWS_REGION', 'ap-southeast-1'))
+ses_client = boto3.client('ses', region_name=os.getenv('AWS_REGION', 'ap-southeast-1'))
 
 S3_BUCKET = os.getenv('S3_BUCKET_NAME')
 SES_FROM_EMAIL = os.getenv('SES_FROM_EMAIL')

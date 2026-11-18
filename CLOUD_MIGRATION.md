@@ -201,7 +201,7 @@ mysql -h ticketrush-db.xxxxx.ap-southeast-1.rds.amazonaws.com -u admin -p ticket
 # Set environment variables
 export REDIS_HOST=ticketrush-redis.xxxxx.cache.amazonaws.com
 export REDIS_PORT=6379
-export REDIS_SSL=false
+export REDIS_SSL=true
 export DB_HOST=ticketrush-db.xxxxx.ap-southeast-1.rds.amazonaws.com
 export DB_USER=admin
 export DB_PASSWORD=<rds-password>
@@ -783,7 +783,7 @@ USE_SQS=true
 SES_FROM_EMAIL=noreply@yourdomain.com
 USE_SES=true
 
-AWS_REGION=us-east-1
+AWS_REGION=ap-southeast-1
 CORS_ORIGINS=http://<alb-dns-name>,https://<cloudfront-domain>
 APP_ENV=production
 DEBUG=false
