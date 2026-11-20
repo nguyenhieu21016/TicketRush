@@ -17,10 +17,33 @@ _redis_client = None
 
 
 def _resolve_redis_url() -> str:
-    """Return REDIS_URL from env var, SSM Parameter Store, or localhost fallback."""
+    """
+    Build a Redis URL from available env vars.
+
+    Priority:
+    1. REDIS_URL  (single URL, e.g. redis://host:6379/0 or rediss://...)
+    2. REDIS_HOST + REDIS_PORT + REDIS_SSL  (split vars, as used in production Docker)
+    3. SSM Parameter Store /ticketrush/backend/REDIS_URL
+    4. localhost fallback
+    """
     url = os.getenv("REDIS_URL")
     if url:
         return url
+
+    # Build from split vars (REDIS_HOST / REDIS_PORT / REDIS_SSL / REDIS_DB)
+    host = os.getenv("REDIS_HOST")
+    if host:
+        port = os.getenv("REDIS_PORT", "6379")
+        db   = os.getenv("REDIS_DB", "0")
+        ssl  = os.getenv("REDIS_SSL", "false").lower() in ("1", "true", "yes")
+        scheme = "rediss" if ssl else "redis"
+        password = os.getenv("REDIS_PASSWORD", "")
+        auth = f":{password}@" if password else ""
+        url = f"{scheme}://{auth}{host}:{port}/{db}"
+        logger.info("REDIS_URL built from REDIS_HOST vars: %s://%s:%s/%s (ssl=%s)", scheme, host, port, db, ssl)
+        os.environ["REDIS_URL"] = url
+        return url
+
     # Try SSM Parameter Store (works when EC2 has AmazonSSMReadOnlyAccess)
     try:
         import boto3
