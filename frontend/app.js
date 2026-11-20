@@ -3,7 +3,8 @@
  * Vanilla JavaScript (ES6+)
  */
 
-const API_BASE = "http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com/api";
+// API Base URL (Local Backend)
+const API_BASE = "http://127.0.0.1:8000/api";
 
 // Event Dataset — ban đầu để rỗng để lấy từ API backend
 let EVENTS_DATA = [];
@@ -153,6 +154,17 @@ const elements = {
   bookingUserEmail: document.getElementById("bookingUserEmail"),
   btnConfirmBooking: document.getElementById("btnConfirmBooking"),
 
+  // Checkout & Countdown Modal Elements
+  checkoutModalBackdrop: document.getElementById("checkoutModalBackdrop"),
+  closeCheckoutModal: document.getElementById("closeCheckoutModal"),
+  countdownTimer: document.getElementById("countdownTimer"),
+  checkoutBookingCode: document.getElementById("checkoutBookingCode"),
+  checkoutEventTitle: document.getElementById("checkoutEventTitle"),
+  checkoutTierQty: document.getElementById("checkoutTierQty"),
+  checkoutTotalAmount: document.getElementById("checkoutTotalAmount"),
+  btnPayNow: document.getElementById("btnPayNow"),
+  btnCancelReservation: document.getElementById("btnCancelReservation"),
+
   // Auth
   authActions: document.getElementById("authActions"),
   authModalBackdrop: document.getElementById("authModalBackdrop"),
@@ -286,6 +298,7 @@ function bindEvents() {
     }
   });
 
+  // Step 1: Click "Proceed to Checkout" -> Call /reserve
   elements.btnConfirmBooking.addEventListener("click", async () => {
     // 1. Kiểm tra đăng nhập
     if (!state.currentUser || !state.authToken) {
@@ -301,13 +314,10 @@ function bindEvents() {
     }
 
     const button = elements.btnConfirmBooking;
-
-    // Prevent duplicate submissions
     button.disabled = true;
-    button.textContent = "Processing...";
+    button.textContent = "Reserving seats...";
 
     try {
-      // 2. Prepare booking request (Lấy thẳng tên và email từ tài khoản đang đăng nhập)
       const bookingData = {
         event_id: state.selectedEvent.id,
         ticket_tier: state.selectedTier,
@@ -316,8 +326,8 @@ function bindEvents() {
         quantity: state.ticketQuantity,
       };
 
-      // 3. Send request to Backend kèm Bearer Token
-      const response = await fetch(`${API_BASE}/bookings/`, {
+      // Gọi endpoint /reserve (Tạm giữ vé với TTL trên Redis)
+      const response = await fetch(`${API_BASE}/bookings/reserve`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -328,7 +338,6 @@ function bindEvents() {
 
       const result = await response.json();
 
-      // 4. Handle API errors
       if (!response.ok) {
         const detail = Array.isArray(result.detail)
           ? result.detail.map((error) => error.msg).join(", ")
@@ -337,25 +346,32 @@ function bindEvents() {
         throw new Error(detail || `HTTP ${response.status}`);
       }
 
-      // 5. Booking successful
-      console.log("Booking response:", result);
+      // Giữ chỗ thành công -> Đóng modal chọn vé và mở Checkout Modal với Countdown
+      elements.bookingModalBackdrop.classList.remove("active");
+      openCheckoutModal(result);
 
-      closeAllModals();
-
-      showToast(
-        `Booking confirmed! Code: ${result.booking_code}. QR tickets will be emailed to ${result.buyer_email}.`,
-      );
-
-      // Refresh events from Backend
-      await fetchEventsFromAPI();
     } catch (error) {
-      console.error("Booking failed:", error);
-      showToast(error.message || "Unable to complete booking.");
+      console.error("Reservation failed:", error);
+      showToast(error.message || "Unable to reserve tickets.");
     } finally {
       button.disabled = false;
       button.textContent = "Proceed to Checkout";
     }
   });
+
+  // Step 2: Pay Now button
+  if (elements.btnPayNow) {
+    elements.btnPayNow.addEventListener("click", handleConfirmPayment);
+  }
+
+  // Cancel reservation button
+  if (elements.btnCancelReservation) {
+    elements.btnCancelReservation.addEventListener("click", handleCancelReservation);
+  }
+
+  if (elements.closeCheckoutModal) {
+    elements.closeCheckoutModal.addEventListener("click", handleCancelReservation);
+  }
 
   // Auth Modals
   elements.closeAuthModal.addEventListener("click", closeAllModals);
@@ -1010,8 +1026,139 @@ async function handleAuthSubmit(e) {
 
 // Modal Dismiss
 function closeAllModals() {
+  stopCountdownTimer();
   elements.bookingModalBackdrop.classList.remove("active");
+  if (elements.checkoutModalBackdrop) {
+    elements.checkoutModalBackdrop.classList.remove("active");
+  }
   elements.authModalBackdrop.classList.remove("active");
+}
+
+// Countdown & Checkout Logic
+let countdownInterval = null;
+let currentReservation = null;
+
+function openCheckoutModal(reservationData) {
+  currentReservation = reservationData;
+
+  if (elements.checkoutBookingCode) {
+    elements.checkoutBookingCode.textContent = reservationData.booking_code;
+  }
+  if (elements.checkoutEventTitle) {
+    elements.checkoutEventTitle.textContent = state.selectedEvent.title;
+  }
+  if (elements.checkoutTierQty) {
+    elements.checkoutTierQty.textContent = `${reservationData.ticket_tier} × ${reservationData.quantity}`;
+  }
+  if (elements.checkoutTotalAmount) {
+    elements.checkoutTotalAmount.textContent = `${reservationData.currency}${Number(reservationData.total_amount).toFixed(2)}`;
+  }
+
+  // Bắt đầu đếm ngược từ TTL (mặc định 600s = 10 phút)
+  startCountdownTimer(reservationData.ttl_seconds || 600);
+
+  if (elements.checkoutModalBackdrop) {
+    elements.checkoutModalBackdrop.classList.add("active");
+  }
+}
+
+function startCountdownTimer(seconds) {
+  stopCountdownTimer();
+  let remaining = seconds;
+  updateTimerDisplay(remaining);
+
+  countdownInterval = setInterval(async () => {
+    remaining--;
+    updateTimerDisplay(remaining);
+
+    if (remaining <= 0) {
+      stopCountdownTimer();
+      showToast("⏰ Reservation time expired! Your held seats have been released.");
+      closeAllModals();
+      await fetchEventsFromAPI();
+    }
+  }, 1000);
+}
+
+function stopCountdownTimer() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
+function updateTimerDisplay(remainingSeconds) {
+  if (!elements.countdownTimer) return;
+  const m = Math.floor(remainingSeconds / 60);
+  const s = remainingSeconds % 60;
+  elements.countdownTimer.textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+
+  if (remainingSeconds <= 60) {
+    elements.countdownTimer.classList.add("urgent");
+  } else {
+    elements.countdownTimer.classList.remove("urgent");
+  }
+}
+
+// Step 2: Confirm Payment Handler
+async function handleConfirmPayment() {
+  if (!currentReservation) return;
+
+  const btn = elements.btnPayNow;
+  btn.disabled = true;
+  btn.textContent = "Processing payment...";
+
+  try {
+    const response = await fetch(`${API_BASE}/bookings/${currentReservation.id}/confirm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.authToken}`,
+      },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.detail || `Payment failed (HTTP ${response.status})`);
+    }
+
+    stopCountdownTimer();
+    closeAllModals();
+    showToast(
+      `🎉 Payment successful! Booking ${result.booking_code} confirmed. QR tickets sent to ${result.buyer_email}.`
+    );
+
+    // Refresh tickets & event list
+    await fetchEventsFromAPI();
+  } catch (error) {
+    console.error("Payment confirmation failed:", error);
+    showToast(error.message || "Unable to confirm payment.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Confirm Payment Now";
+  }
+}
+
+// Cancel Reservation Handler
+async function handleCancelReservation() {
+  if (currentReservation) {
+    try {
+      await fetch(`${API_BASE}/bookings/${currentReservation.id}/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${state.authToken}`,
+        },
+      });
+      showToast("Reservation cancelled. Seats released.");
+    } catch (err) {
+      console.warn("Cancel request error:", err);
+    }
+  }
+
+  stopCountdownTimer();
+  closeAllModals();
+  await fetchEventsFromAPI();
 }
 
 // Toast System

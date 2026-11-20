@@ -2,15 +2,31 @@
 Admin API routes — yêu cầu role ADMIN.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.core.deps import require_admin
 from app.models import User
-from app.schemas import EventCreateRequest, EventUpdateRequest, EventResponse, AdminBookingListResponse
-from app.services.admin_service import create_event, update_event, delete_event, get_admin_bookings, export_bookings_csv, cancel_event
+from app.schemas import (
+    EventCreateRequest,
+    EventUpdateRequest,
+    EventResponse,
+    AdminBookingListResponse,
+    TicketCheckInRequest,
+    TicketCheckInResponse
+)
+from app.services.admin_service import (
+    create_event,
+    update_event,
+    delete_event,
+    get_admin_bookings,
+    export_bookings_csv,
+    cancel_event,
+    check_in_ticket
+)
 from app.services.ticket_email_service import send_booking_tickets
+from app.services.s3_service import upload_event_poster
 
 
 router = APIRouter(
@@ -99,3 +115,43 @@ def cancel_event_route(
 ):
     """Hủy sự kiện và tự động cancel toàn bộ bookings. Chỉ ADMIN."""
     return cancel_event(db, event_id)
+
+
+@router.post("/tickets/check-in", response_model=TicketCheckInResponse)
+def check_in_ticket_route(
+    payload: TicketCheckInRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Quét mã QR / Nhập ticket_code để check-in tại cổng. Chặn vé CANCELLED và chặn quét trùng."""
+    return check_in_ticket(db, payload.ticket_code)
+
+
+@router.post("/upload-poster")
+async def upload_poster_route(
+    file: UploadFile = File(...),
+    admin: User = Depends(require_admin),
+):
+    """Upload poster ảnh sự kiện lên AWS S3. Chỉ ADMIN."""
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image format. Allowed: JPEG, PNG, WEBP, GIF."
+        )
+
+    # Đọc file bytes
+    file_bytes = await file.read()
+    if len(file_bytes) > 5 * 1024 * 1024:  # Max 5MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size too large. Maximum allowed size is 5MB."
+        )
+
+    url = upload_event_poster(
+        file_bytes=file_bytes,
+        filename=file.filename or "poster.jpg",
+        content_type=file.content_type
+    )
+
+    return {"url": url, "filename": file.filename}

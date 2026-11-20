@@ -91,3 +91,55 @@ def get_available_seats(event_id: int, tier: str) -> int:
         return int(count) if count else 0
     except redis.RedisError:
         return 0
+
+
+def set_booking_hold(booking_id: int, event_id: int, tier: str, quantity: int, ttl_seconds: int = 600) -> None:
+    """Store booking hold information with TTL in Redis."""
+    try:
+        import json
+        client = get_redis_client()
+        key = f"booking:{booking_id}:hold"
+        data = {
+            "booking_id": booking_id,
+            "event_id": event_id,
+            "tier": tier,
+            "quantity": quantity
+        }
+        client.setex(key, ttl_seconds, json.dumps(data))
+    except redis.RedisError:
+        pass
+
+
+def get_booking_hold(booking_id: int) -> dict | None:
+    """Get active hold information for a booking."""
+    try:
+        import json
+        client = get_redis_client()
+        key = f"booking:{booking_id}:hold"
+        val = client.get(key)
+        if val:
+            return json.loads(val)
+        return None
+    except redis.RedisError:
+        return None
+
+
+def get_booking_hold_ttl(booking_id: int) -> int:
+    """Get remaining TTL in seconds for a booking hold."""
+    try:
+        client = get_redis_client()
+        key = f"booking:{booking_id}:hold"
+        ttl = client.ttl(key)
+        return max(0, ttl) if ttl > 0 else 0
+    except redis.RedisError:
+        return 0
+
+
+def delete_booking_hold(booking_id: int) -> None:
+    """Remove booking hold key from Redis."""
+    try:
+        client = get_redis_client()
+        key = f"booking:{booking_id}:hold"
+        client.delete(key)
+    except redis.RedisError:
+        pass

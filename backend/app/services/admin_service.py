@@ -10,8 +10,15 @@ from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.models import Event, Booking
-from app.schemas import EventCreateRequest, EventUpdateRequest, AdminBookingListResponse, AdminBookingResponse
+from datetime import datetime
+from app.models import Event, Booking, Ticket
+from app.schemas import (
+    EventCreateRequest,
+    EventUpdateRequest,
+    AdminBookingListResponse,
+    AdminBookingResponse,
+    TicketCheckInResponse
+)
 
 
 def _split_tier_tickets(total: int) -> tuple[int, int, int]:
@@ -278,4 +285,65 @@ def export_bookings_csv(db: Session, event_id: int | None = None) -> StreamingRe
         headers={
             "Content-Disposition": f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{encoded_filename}'
         },
+    )
+
+
+def check_in_ticket(db: Session, ticket_code: str) -> TicketCheckInResponse:
+    """Xử lý check-in vé QR tại cổng."""
+    code = ticket_code.strip()
+
+    ticket = db.query(Ticket).filter(Ticket.ticket_code == code).first()
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ticket '{code}' not found."
+        )
+
+    booking = db.query(Booking).filter(Booking.id == ticket.booking_id).first()
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Associated booking not found."
+        )
+
+    if booking.status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Check-in failed: Associated booking has been CANCELLED."
+        )
+
+    if ticket.status == "CANCELLED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Check-in failed: Ticket has been CANCELLED."
+        )
+
+    if ticket.status == "CHECKED_IN":
+        checked_time_str = (
+            ticket.checked_in_at.strftime("%H:%M:%S %d/%m/%Y")
+            if ticket.checked_in_at else "previously"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Ticket already checked in at {checked_time_str}!"
+        )
+
+    event = db.query(Event).filter(Event.id == booking.event_id).first()
+
+    # Cập nhật trạng thái CHECKED_IN
+    ticket.status = "CHECKED_IN"
+    ticket.checked_in_at = datetime.utcnow()
+    db.commit()
+    db.refresh(ticket)
+
+    return TicketCheckInResponse(
+        ticket_code=ticket.ticket_code,
+        status=ticket.status,
+        ticket_tier=ticket.ticket_tier,
+        checked_in_at=ticket.checked_in_at,
+        booking_code=booking.booking_code,
+        buyer_name=booking.buyer_name,
+        buyer_email=booking.buyer_email,
+        event_id=booking.event_id,
+        event_name=event.name if event else "Unknown Event"
     )

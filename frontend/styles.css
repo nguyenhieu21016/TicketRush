@@ -1497,3 +1497,137 @@ body {
     padding: 16px;
   }
 }
+
+/* ========================================================
+   Step 2: Checkout & Countdown Timer Styles
+   ======================================================== */
+.checkout-dialog {
+  max-width: 480px;
+  width: 90%;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.countdown-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.countdown-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.countdown-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.countdown-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400E;
+}
+
+.countdown-timer {
+  font-size: 20px;
+  font-weight: 800;
+  color: #B45309;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-timer.urgent {
+  color: #DC2626;
+  animation: pulseWarning 1s infinite alternate;
+}
+
+@keyframes pulseWarning {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0.8; transform: scale(1.03); }
+}
+
+.checkout-summary-box {
+  background: #F9FAFB;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.checkout-summary-row strong,
+.checkout-summary-row code {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.checkout-total-row {
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.checkout-total-row strong {
+  font-size: 18px;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.payment-method-box {
+  margin-bottom: 24px;
+}
+
+.payment-card-preview {
+  background: linear-gradient(135deg, #1E293B, #0F172A);
+  color: white;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-card-chip {
+  font-size: 13px;
+  font-weight: 600;
+  color: #94A3B8;
+}
+
+.payment-card-number {
+  font-size: 16px;
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+.payment-card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #94A3B8;
+}
+
+.checkout-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

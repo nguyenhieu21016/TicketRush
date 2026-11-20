@@ -77,8 +77,29 @@ class BookingResponse(BaseModel):
 
     status: str
     created_at: datetime
+    expires_at: datetime | None = None
+    ttl_seconds: int | None = None
 
-    tickets: list[TicketResponse]
+    tickets: list[TicketResponse] = []
+
+
+class BookingReservationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    booking_code: str
+    event_id: int
+    buyer_name: str
+    buyer_email: EmailStr
+    ticket_tier: str
+    quantity: int
+    unit_price: Decimal
+    total_amount: Decimal
+    currency: str
+    status: str
+    created_at: datetime
+    expires_at: datetime | None = None
+    ttl_seconds: int = 600
 
 
 class BookingListResponse(BaseModel):
@@ -171,3 +192,22 @@ class AdminBookingListResponse(BaseModel):
     bookings: list[AdminBookingResponse]
     total: int
     event_name: str | None = None
+
+
+class TicketCheckInRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    ticket_code: str = Field(min_length=1)
+
+
+class TicketCheckInResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ticket_code: str
+    status: str
+    ticket_tier: str
+    checked_in_at: datetime | None = None
+    booking_code: str
+    buyer_name: str
+    buyer_email: str
+    event_id: int
+    event_name: str
