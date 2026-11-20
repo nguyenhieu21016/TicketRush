@@ -1,9 +1,10 @@
 """
 Redis Cache-Aside helper.
 
-Connection is established lazily via the REDIS_URL env var (defaults to
-redis://localhost:6379/0).  If Redis is unavailable the application falls
-back gracefully — cached reads return None and callers hit the database.
+Connection is established lazily via the REDIS_URL env var (or SSM Parameter
+Store /ticketrush/backend/REDIS_URL as fallback).  If Redis is unavailable the
+application falls back gracefully — cached reads return None and callers hit
+the database.
 """
 import json
 import logging
@@ -15,6 +16,25 @@ logger = logging.getLogger(__name__)
 _redis_client = None
 
 
+def _resolve_redis_url() -> str:
+    """Return REDIS_URL from env var, SSM Parameter Store, or localhost fallback."""
+    url = os.getenv("REDIS_URL")
+    if url:
+        return url
+    # Try SSM Parameter Store (works when EC2 has AmazonSSMReadOnlyAccess)
+    try:
+        import boto3
+        ssm = boto3.client("ssm", region_name=os.getenv("AWS_DEFAULT_REGION", "ap-southeast-1"))
+        resp = ssm.get_parameter(Name="/ticketrush/backend/REDIS_URL", WithDecryption=True)
+        url = resp["Parameter"]["Value"]
+        os.environ["REDIS_URL"] = url   # cache for next call
+        logger.info("REDIS_URL loaded from SSM Parameter Store")
+        return url
+    except Exception as exc:
+        logger.warning("Could not load REDIS_URL from SSM: %s — using localhost", exc)
+    return "redis://localhost:6379/0"
+
+
 def get_redis():
     """Return a connected redis.Redis instance, or None when Redis is down."""
     global _redis_client
@@ -22,7 +42,7 @@ def get_redis():
         return _redis_client
     try:
         import redis  # optional dependency
-        url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        url = _resolve_redis_url()
         _redis_client = redis.from_url(url, decode_responses=True, socket_connect_timeout=2)
         _redis_client.ping()          # fail-fast during first use
         logger.info("Redis connected: %s", url)
