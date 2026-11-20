@@ -3,8 +3,11 @@
  * Vanilla JavaScript (ES6+)
  */
 
-// API Base URL (Local Backend)
-const API_BASE = "http://127.0.0.1:8000/api";
+// API Base URL (auto-detect local dev vs AWS S3/ALB)
+const IS_LOCAL_HOST = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const API_BASE = IS_LOCAL_HOST
+  ? "http://127.0.0.1:8000/api"
+  : "http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com/api";
 
 // Event Dataset — ban đầu để rỗng để lấy từ API backend
 let EVENTS_DATA = [];

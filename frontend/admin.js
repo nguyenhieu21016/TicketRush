@@ -2,7 +2,11 @@
    TicketRush - Dashboard JS
    ======================================================== */
 
-const API = 'http://127.0.0.1:8000/api';
+// Auto-detect local dev vs AWS S3/ALB
+const IS_LOCAL_HOST = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API = IS_LOCAL_HOST
+  ? 'http://127.0.0.1:8000/api'
+  : 'http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com/api';
 
 // Auth Storage
 function getToken() { return localStorage.getItem('authToken'); }
