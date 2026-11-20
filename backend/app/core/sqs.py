@@ -20,13 +20,15 @@ _sqs_client = None
 
 
 def get_sqs():
-    """Lazy-init boto3 SQS client. Returns None when not configured."""
+    """Lazy-init boto3 SQS client. Returns None when disabled or not configured."""
     global _sqs_client
-    if _sqs_client is not None:
-        return _sqs_client
-    queue_url = os.getenv("SQS_QUEUE_URL", "")
+    if os.getenv("USE_SQS", "").strip().lower() in ("0", "false", "no"):
+        return None
+    queue_url = os.getenv("SQS_QUEUE_URL", "").strip()
     if not queue_url:
         return None
+    if _sqs_client is not None:
+        return _sqs_client
     try:
         import boto3  # optional dependency
         _sqs_client = boto3.client(
@@ -55,10 +57,11 @@ def publish_booking_event(booking_id: int, idempotency_key: str) -> bool:
     if sqs is None:
         return False   # caller should use direct SMTP fallback
 
-    queue_url = os.getenv("SQS_QUEUE_URL", "")
+    queue_url = os.getenv("SQS_QUEUE_URL", "").strip()
     payload: dict[str, Any] = {
         "booking_id": booking_id,
         "idempotency_key": idempotency_key,
+        "action": "generate_tickets",
     }
 
     try:
@@ -71,7 +74,11 @@ def publish_booking_event(booking_id: int, idempotency_key: str) -> bool:
                 "idempotency_key": {
                     "DataType": "String",
                     "StringValue": idempotency_key,
-                }
+                },
+                "BookingId": {
+                    "DataType": "Number",
+                    "StringValue": str(booking_id),
+                },
             },
         )
         logger.info("Queued ticket-email job for booking %s (key=%s)", booking_id, idempotency_key)

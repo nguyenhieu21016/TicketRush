@@ -47,7 +47,7 @@ def _resolve_redis_url() -> str:
     # Try SSM Parameter Store (works when EC2 has AmazonSSMReadOnlyAccess)
     try:
         import boto3
-        ssm = boto3.client("ssm", region_name=os.getenv("AWS_DEFAULT_REGION", "ap-southeast-1"))
+        ssm = boto3.client("ssm", region_name=os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION", "ap-southeast-1"))
         resp = ssm.get_parameter(Name="/ticketrush/backend/REDIS_URL", WithDecryption=True)
         url = resp["Parameter"]["Value"]
         os.environ["REDIS_URL"] = url   # cache for next call

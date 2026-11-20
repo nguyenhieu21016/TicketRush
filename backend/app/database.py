@@ -1,25 +1,17 @@
-import os
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.config import get_settings
 
-# Database connection URL
-DATABASE_URL = (
-    f"mysql+pymysql://{os.getenv('DB_USER')}:"
-    f"{os.getenv('DB_PASSWORD')}@"
-    f"{os.getenv('DB_HOST')}:"
-    f"{os.getenv('DB_PORT')}/"
-    f"{os.getenv('DB_NAME')}"
-)
+settings = get_settings()
 
 # Create database engine
 engine = create_engine(
-    DATABASE_URL,
-    echo=True,
-    pool_pre_ping=True
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20
 )
 
 # Create database session factory

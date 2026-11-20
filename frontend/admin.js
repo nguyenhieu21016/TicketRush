@@ -142,6 +142,10 @@ document.querySelectorAll('.nav-item').forEach((item) => {
 
     if (tab === 'events') loadEvents();
     if (tab === 'bookings') loadBookings();
+    if (tab === 'checkin') {
+      const input = document.getElementById('ticketCodeInput');
+      if (input) input.focus();
+    }
   });
 });
 
@@ -243,6 +247,7 @@ function openCreateEvent() {
   document.getElementById('f-price').value = '0';
   document.getElementById('f-total-tickets').value = '300';
   hideError('eventFormError');
+  resetPosterUploadUI();
   document.getElementById('eventModal').classList.add('open');
 }
 
@@ -269,7 +274,35 @@ function openEditEvent(id) {
   document.getElementById('f-event-date').value = local;
 
   hideError('eventFormError');
+  resetPosterUploadUI();
+  if (ev.image_url) {
+    showPosterPreview(ev.image_url);
+  }
   document.getElementById('eventModal').classList.add('open');
+}
+
+function resetPosterUploadUI() {
+  const statusEl = document.getElementById('posterUploadStatus');
+  const previewBox = document.getElementById('posterPreviewContainer');
+  const fileInput = document.getElementById('f-poster-file');
+  if (statusEl) {
+    statusEl.style.display = 'none';
+    statusEl.className = 'upload-status';
+    statusEl.textContent = '';
+  }
+  if (previewBox) {
+    previewBox.style.display = 'none';
+  }
+  if (fileInput) fileInput.value = '';
+}
+
+function showPosterPreview(url) {
+  const previewBox = document.getElementById('posterPreviewContainer');
+  const previewImg = document.getElementById('posterPreviewImg');
+  if (previewBox && previewImg) {
+    previewImg.src = url;
+    previewBox.style.display = 'block';
+  }
 }
 
 function closeEventModal() {
@@ -318,6 +351,68 @@ async function submitEventForm(e) {
     btn.disabled = false;
     btn.textContent = editingEventId ? 'Save changes' : 'Create event';
   }
+}
+
+// S3 Poster File Upload Handler
+const posterFileInput = document.getElementById('f-poster-file');
+if (posterFileInput) {
+  posterFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('posterUploadStatus');
+    const imageUrlInput = document.getElementById('f-image-url');
+
+    statusEl.style.display = 'block';
+    statusEl.className = 'upload-status loading';
+    statusEl.textContent = `Uploading ${file.name} to AWS S3...`;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const token = getToken();
+      const res = await fetch(`${API}/admin/upload-poster`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || `Upload failed with status ${res.status}`);
+      }
+
+      imageUrlInput.value = data.url;
+      showPosterPreview(data.url);
+
+      statusEl.className = 'upload-status success';
+      statusEl.textContent = '✅ Poster uploaded to S3 successfully!';
+      showToast('Poster uploaded to S3!');
+    } catch (err) {
+      console.error('Poster upload failed:', err);
+      statusEl.className = 'upload-status error';
+      statusEl.textContent = `❌ ${err.message || 'Failed to upload poster'}`;
+      showToast('Failed to upload poster.');
+    }
+  });
+}
+
+// Also listen to direct input change on image URL for live preview
+const imageUrlInput = document.getElementById('f-image-url');
+if (imageUrlInput) {
+  imageUrlInput.addEventListener('input', (e) => {
+    const val = e.target.value.trim();
+    if (val) {
+      showPosterPreview(val);
+    } else {
+      const previewBox = document.getElementById('posterPreviewContainer');
+      if (previewBox) previewBox.style.display = 'none';
+    }
+  });
 }
 
 // Cancel Event Modal
@@ -604,6 +699,84 @@ if (exportAllBtn) {
   exportAllBtn.addEventListener('click', () => {
     const selectedEventId = document.getElementById('filterEvent').value;
     exportCSV(selectedEventId ? parseInt(selectedEventId, 10) : null);
+  });
+}
+
+// ========================================================
+// CHECK-IN QR TAB
+// ========================================================
+const checkinForm = document.getElementById('checkinForm');
+if (checkinForm) {
+  checkinForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('ticketCodeInput');
+    const submitBtn = document.getElementById('btnSubmitCheckin');
+    const code = (input.value || '').trim();
+
+    if (!code) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Checking...';
+
+    const resultBox = document.getElementById('checkinResult');
+    const badge = document.getElementById('checkinBadge');
+
+    try {
+      const res = await apiFetch('/admin/tickets/check-in', {
+        method: 'POST',
+        body: JSON.stringify({ ticket_code: code }),
+      });
+
+      const data = await res.json();
+
+      resultBox.style.display = 'block';
+
+      if (!res.ok) {
+        // Lỗi: Quét trùng (409) hoặc Vé đã hủy / không hợp lệ (400, 404)
+        if (res.status === 409) {
+          badge.className = 'checkin-badge warning';
+          badge.textContent = '⚠️ ALREADY CHECKED IN';
+        } else {
+          badge.className = 'checkin-badge error';
+          badge.textContent = '❌ INVALID / CANCELLED TICKET';
+        }
+
+        document.getElementById('resBuyerName').textContent = '—';
+        document.getElementById('resBuyerEmail').textContent = '—';
+        document.getElementById('resEventName').textContent = data.detail || 'Check-in failed';
+        document.getElementById('resTicketTier').textContent = '—';
+        document.getElementById('resTicketCode').textContent = code;
+        document.getElementById('resBookingCode').textContent = '—';
+        document.getElementById('resCheckinTime').textContent = formatDate(new Date());
+
+        showToast(data.detail || 'Ticket check-in failed!');
+        return;
+      }
+
+      // Check-in thành công
+      badge.className = 'checkin-badge success';
+      badge.textContent = '✅ CHECK-IN SUCCESSFUL';
+
+      document.getElementById('resBuyerName').textContent = data.buyer_name || '—';
+      document.getElementById('resBuyerEmail').textContent = data.buyer_email || '—';
+      document.getElementById('resEventName').textContent = data.event_name || '—';
+      document.getElementById('resTicketTier').textContent = data.ticket_tier || 'STANDARD';
+      document.getElementById('resTicketCode').textContent = data.ticket_code;
+      document.getElementById('resBookingCode').textContent = data.booking_code || '—';
+      document.getElementById('resCheckinTime').textContent = formatDate(data.checked_in_at);
+
+      showToast(`Checked in: ${data.buyer_name} (${data.ticket_tier})`);
+      input.value = '';
+      input.focus();
+
+    } catch (err) {
+      if (err.message !== 'Unauthorized') {
+        showToast('Network error while checking in ticket.');
+      }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Validate & Check In';
+    }
   });
 }
 

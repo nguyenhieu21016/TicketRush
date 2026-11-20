@@ -1,0 +1,13 @@
+# Compose file cho EC2 Cloud (nối tới AWS RDS MySQL & ElastiCache Redis qua backend/.env)
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ticketrush-backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2

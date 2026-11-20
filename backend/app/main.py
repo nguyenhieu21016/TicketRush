@@ -1,26 +1,26 @@
-
 import os
+os.environ["DISABLE_SQLALCHEMY_CEXT"] = "1"
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import get_settings
 from app.routes.events import router as events_router
 from app.routes.bookings import router as bookings_router
 from app.routes.auth import router as auth_router
 from app.routes.admin import router as admin_router
 
-app = FastAPI()
+settings = get_settings()
 
-# Allow origins from env var CORS_ORIGINS (comma-separated) or default to localhost dev
-_raw_origins = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:5500,http://127.0.0.1:5500,http://0.0.0.0:5500"
+app = FastAPI(
+    title="TicketRush API",
+    description="Event ticketing system with high-load capacity",
+    version="1.0.0"
 )
-ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=[o.strip() for o in settings.CORS_ORIGINS if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,3 +30,8 @@ app.include_router(events_router)
 app.include_router(bookings_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "environment": settings.APP_ENV}
