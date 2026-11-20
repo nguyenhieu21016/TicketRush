@@ -175,11 +175,36 @@ def send_booking_tickets(db: Session, booking_id: int) -> dict[str, int | str]:
 
 
 def send_booking_tickets_in_background(booking_id: int) -> None:
+    """
+    Background task called by FastAPI after a booking is created.
+
+    Flow (SQS-first, SMTP fallback):
+    1. If SQS_QUEUE_URL is configured → push to SQS queue;
+       Lambda will consume, apply idempotency check, and send the email.
+    2. If SQS is not configured (local dev) → send directly via SMTP.
+    """
+    from app.core.sqs import publish_booking_event
+
     db = SessionLocal()
     try:
+        # Fetch booking_code for idempotency key (cheap read)
+        booking = db.query(Booking).filter(Booking.id == booking_id).first()
+        if booking is None:
+            logger.error("Background task: booking %s not found", booking_id)
+            return
+
+        # Try SQS first
+        queued = publish_booking_event(
+            booking_id=booking_id,
+            idempotency_key=booking.booking_code,
+        )
+        if queued:
+            return  # Lambda handles the rest
+
+        # Fallback: send directly (local dev / no SQS configured)
         result = send_booking_tickets(db, booking_id)
         logger.info(
-            "Automatically sent %s tickets for booking %s to %s",
+            "Automatically sent %s tickets for booking %s to %s (SMTP direct)",
             result["tickets_sent"],
             booking_id,
             result["recipient"],

@@ -8,3 +8,4 @@ bcrypt
 pyjwt
 qrcode[pil]
 redis
+boto3
