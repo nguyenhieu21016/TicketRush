@@ -1,0 +1,15 @@
+services:
+  db:
+    ports:
+      - "3306:3306"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  backend:
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

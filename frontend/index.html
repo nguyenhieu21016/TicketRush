@@ -257,6 +257,69 @@
     </div>
   </div>
 
+  <!-- Step 2: Checkout / Payment Simulation Modal with Countdown Timer -->
+  <div class="modal-backdrop" id="checkoutModalBackdrop">
+    <div class="modal-dialog checkout-dialog" role="dialog" aria-modal="true">
+      <button type="button" class="modal-close-btn" id="closeCheckoutModal" aria-label="Close dialog">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">Payment & Confirmation</h2>
+        <p class="modal-subtitle">Your seats are temporarily held. Please complete payment before time runs out.</p>
+      </div>
+
+      <div class="checkout-body">
+        <!-- Countdown Timer Banner -->
+        <div class="countdown-banner" id="countdownBanner">
+          <div class="countdown-icon">⏱️</div>
+          <div class="countdown-info">
+            <span class="countdown-label">Time Remaining to Complete Payment:</span>
+            <span class="countdown-timer" id="countdownTimer">10:00</span>
+          </div>
+        </div>
+
+        <div class="checkout-summary-box">
+          <div class="checkout-summary-row">
+            <span>Booking Code:</span>
+            <code id="checkoutBookingCode">BK-XXXXX</code>
+          </div>
+          <div class="checkout-summary-row">
+            <span>Event:</span>
+            <strong id="checkoutEventTitle">Event Name</strong>
+          </div>
+          <div class="checkout-summary-row">
+            <span>Tier & Quantity:</span>
+            <span id="checkoutTierQty">Standard x 1</span>
+          </div>
+          <div class="checkout-summary-row checkout-total-row">
+            <span>Total Payable:</span>
+            <strong id="checkoutTotalAmount">£45.00</strong>
+          </div>
+        </div>
+
+        <!-- Simulated Payment Method -->
+        <div class="payment-method-box">
+          <label class="field-label">Simulated Payment Method</label>
+          <div class="payment-card-preview">
+            <div class="payment-card-chip">💳 Mock Card</div>
+            <div class="payment-card-number">•••• •••• •••• 4242</div>
+            <div class="payment-card-meta">
+              <span>Expires: 12/28</span>
+              <span>CVV: 888</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="checkout-actions">
+          <button type="button" class="btn btn-primary btn-block" id="btnPayNow">
+            Confirm Payment Now
+          </button>
+          <button type="button" class="btn btn-ghost btn-block" id="btnCancelReservation">
+            Cancel Reservation
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Auth Modal (Log in / Sign up) -->
   <div class="modal-backdrop" id="authModalBackdrop">
     <div class="modal-dialog auth-dialog" role="dialog" aria-modal="true">

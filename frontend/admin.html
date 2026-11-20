@@ -56,6 +56,9 @@
         <button type="button" class="nav-item" data-tab="bookings" role="tab" aria-selected="false">
           Bookings <span class="counter-badge" id="bookingsCount">0</span>
         </button>
+        <button type="button" class="nav-item" data-tab="checkin" role="tab" aria-selected="false">
+          Check-in QR
+        </button>
       </div>
 
       <div class="admin-toolbar-actions">
@@ -120,6 +123,67 @@
         </table>
       </div>
     </section>
+
+    <!-- Tab: Check-in QR -->
+    <section class="admin-tab" id="tab-checkin" role="tabpanel">
+      <div class="checkin-container">
+        <div class="checkin-card">
+          <h2 class="checkin-title">Gate Ticket Check-in</h2>
+          <p class="checkin-desc">Scan QR code or manually enter the ticket code to validate entry.</p>
+
+          <form id="checkinForm" class="checkin-form" onsubmit="event.preventDefault();">
+            <div class="checkin-input-group">
+              <input 
+                type="text" 
+                id="ticketCodeInput" 
+                class="form-input checkin-input" 
+                placeholder="e.g. TKT-A1B2C3D4E5F6..." 
+                autocomplete="off" 
+                required 
+              />
+              <button type="submit" class="btn btn-primary" id="btnSubmitCheckin">
+                Validate &amp; Check In
+              </button>
+            </div>
+          </form>
+
+          <!-- Check-in Result Card -->
+          <div id="checkinResult" class="checkin-result" style="display: none;">
+            <div class="checkin-badge" id="checkinBadge">CHECKED IN</div>
+            <div class="checkin-details">
+              <div class="checkin-detail-row">
+                <span>Attendee Name:</span>
+                <strong id="resBuyerName">—</strong>
+              </div>
+              <div class="checkin-detail-row">
+                <span>Attendee Email:</span>
+                <span id="resBuyerEmail">—</span>
+              </div>
+              <div class="checkin-detail-row">
+                <span>Event:</span>
+                <strong id="resEventName">—</strong>
+              </div>
+              <div class="checkin-detail-row">
+                <span>Ticket Tier:</span>
+                <span id="resTicketTier" class="tier-badge">—</span>
+              </div>
+              <div class="checkin-detail-row">
+                <span>Ticket Code:</span>
+                <code id="resTicketCode">—</code>
+              </div>
+              <div class="checkin-detail-row">
+                <span>Booking Code:</span>
+                <span id="resBookingCode">—</span>
+              </div>
+              <div class="checkin-detail-row">
+                <span>Check-in Timestamp:</span>
+                <span id="resCheckinTime">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Site Footer -->
@@ -178,8 +242,18 @@
             </div>
           </div>
           <div class="form-group">
-            <label for="f-image-url">Cover Image URL</label>
-            <input type="url" id="f-image-url" class="form-input" placeholder="https://..." />
+            <label for="f-image-url">Cover Image / Poster (S3)</label>
+            <div class="poster-upload-row">
+              <input type="url" id="f-image-url" class="form-input" placeholder="https://... or upload below" />
+              <label class="btn btn-outline btn-upload-label" for="f-poster-file">
+                📁 Upload to S3
+                <input type="file" id="f-poster-file" accept="image/*" style="display: none;" />
+              </label>
+            </div>
+            <div id="posterUploadStatus" class="upload-status" style="display: none;"></div>
+            <div id="posterPreviewContainer" class="poster-preview-container" style="display: none;">
+              <img id="posterPreviewImg" src="" alt="Poster Preview" class="poster-preview-img" />
+            </div>
           </div>
 
           <div id="eventFormError" class="form-error" style="display: none;"></div>

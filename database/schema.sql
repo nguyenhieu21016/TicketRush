@@ -71,7 +71,8 @@ CREATE TABLE bookings (
   unit_price DECIMAL(10, 2) NOT NULL COMMENT 'Giá mỗi vé tại thời điểm đặt',
   total_amount DECIMAL(10, 2) NOT NULL COMMENT 'Tổng tiền = quantity × unit_price',
   currency VARCHAR(10) NOT NULL DEFAULT (CONVERT(0xC2A3 USING utf8mb4)) COMMENT 'Đơn vị tiền tệ',
-  status ENUM('CONFIRMED', 'CANCELLED') NOT NULL DEFAULT 'CONFIRMED' COMMENT 'Trạng thái booking',
+  status ENUM('PENDING', 'CONFIRMED', 'CANCELLED') NOT NULL DEFAULT 'PENDING' COMMENT 'Trạng thái booking',
+  expires_at TIMESTAMP NULL DEFAULT NULL COMMENT 'Thời hạn giữ chỗ',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm đặt vé',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -104,7 +105,8 @@ CREATE TABLE tickets (
   ticket_code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Mã vé duy nhất (được mã hóa vào QR Code)',
   booking_id INT NOT NULL COMMENT 'Khóa ngoại liên kết tới bảng bookings',
   ticket_tier ENUM('STANDARD', 'VIP', 'VVIP') NOT NULL DEFAULT 'STANDARD' COMMENT 'Hạng ghế của vé (STANDARD, VIP, VVIP)',
-  status ENUM('CONFIRMED', 'CANCELLED', 'PENDING') NOT NULL DEFAULT 'CONFIRMED' COMMENT 'Trạng thái vé',
+  status ENUM('CONFIRMED', 'CANCELLED', 'PENDING', 'CHECKED_IN') NOT NULL DEFAULT 'CONFIRMED' COMMENT 'Trạng thái vé',
+  checked_in_at TIMESTAMP NULL DEFAULT NULL COMMENT 'Thời điểm check-in tại cổng',
   qr_code_url VARCHAR(500) DEFAULT NULL COMMENT 'Đường dẫn ảnh QR lưu trữ trên AWS S3',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Thời điểm tạo vé',
 

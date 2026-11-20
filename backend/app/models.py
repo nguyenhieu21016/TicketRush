@@ -95,10 +95,15 @@ class Booking(Base):
     currency = Column(String(10), nullable=False)
 
     status = Column(
-        Enum("CONFIRMED", "CANCELLED", name="booking_status"),
+        Enum("PENDING", "CONFIRMED", "CANCELLED", name="booking_status"),
         nullable=False,
-        default="CONFIRMED",
-        server_default=text("'CONFIRMED'")
+        default="PENDING",
+        server_default=text("'PENDING'")
+    )
+
+    expires_at = Column(
+        TIMESTAMP,
+        nullable=True
     )
 
     created_at = Column(
@@ -142,10 +147,15 @@ class Ticket(Base):
     )
 
     status = Column(
-        Enum("CONFIRMED", "CANCELLED", "PENDING", name="ticket_status"),
+        Enum("CONFIRMED", "CANCELLED", "PENDING", "CHECKED_IN", name="ticket_status"),
         nullable=False,
         default="CONFIRMED",
         server_default=text("'CONFIRMED'")
+    )
+
+    checked_in_at = Column(
+        TIMESTAMP,
+        nullable=True
     )
 
     qr_code_url = Column(String(500), nullable=True)
