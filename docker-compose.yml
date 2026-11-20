@@ -11,5 +11,14 @@ services:
       - mysql_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
 
+  # Redis local — mô phỏng ElastiCache cho dev/test
+  redis:
+    image: redis:7-alpine
+    container_name: ticketrush-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+
 volumes:
   mysql_data:
