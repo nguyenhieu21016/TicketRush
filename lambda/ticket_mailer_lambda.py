@@ -99,7 +99,12 @@ def handler(event, context):
         try:
             body = json.loads(record["body"])
             booking_id: int = int(body["booking_id"])
-            idempotency_key: str = body["idempotency_key"]
+            # idempotency_key is optional — legacy DLQ messages (format:
+            # {"booking_id": N, "action": "generate_tickets"}) don't have it.
+            # Fall back to "booking:<id>" so they are still processed once.
+            idempotency_key: str = body.get(
+                "idempotency_key", f"booking:{booking_id}"
+            )
         except (KeyError, ValueError, json.JSONDecodeError) as exc:
             logger.error("Malformed SQS message %s: %s — sending to DLQ", message_id, exc)
             # Returning the item ID causes Lambda to report it as a failure

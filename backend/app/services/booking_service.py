@@ -14,6 +14,7 @@ from app.schemas import (
     TicketResponse
 )
 from app.core.cache import cache_delete
+from app.core.sqs import publish_booking_event
 
 
 TIER_MULTIPLIERS: dict[str, Decimal] = {
@@ -163,6 +164,13 @@ def create_booking(
     # Invalidate cached event data since available_tickets changed
     cache_delete("events:list")
     cache_delete(f"events:{booking_data.event_id}")
+
+    # Push ticket-email job to SQS (Lambda handles delivery + idempotency)
+    # Falls back gracefully if SQS_QUEUE_URL is not configured
+    publish_booking_event(
+        booking_id=response.id,
+        idempotency_key=response.booking_code,
+    )
     return response
 
 
