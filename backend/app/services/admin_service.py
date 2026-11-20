@@ -12,6 +12,14 @@ from sqlalchemy.orm import Session
 
 from app.models import Event, Booking
 from app.schemas import EventCreateRequest, EventUpdateRequest, AdminBookingListResponse, AdminBookingResponse
+from app.core.cache import cache_delete, cache_delete_pattern
+
+
+def _invalidate_event_cache(event_id: int | None = None) -> None:
+    """Xóa cache danh sách sự kiện và (nếu có) cache chi tiết sự kiện cụ thể."""
+    cache_delete("events:list")
+    if event_id is not None:
+        cache_delete(f"events:{event_id}")
 
 
 def _split_tier_tickets(total: int) -> tuple[int, int, int]:
@@ -46,6 +54,8 @@ def create_event(db: Session, request: EventCreateRequest) -> Event:
     db.add(new_event)
     db.commit()
     db.refresh(new_event)
+    # Invalidate list cache when a new event is created
+    _invalidate_event_cache()
     return new_event
 
 
@@ -100,6 +110,8 @@ def update_event(db: Session, event_id: int, request: EventUpdateRequest) -> Eve
 
     db.commit()
     db.refresh(event)
+    # Invalidate both list cache and this event's detail cache
+    _invalidate_event_cache(event_id)
     return event
 
 
@@ -121,6 +133,7 @@ def delete_event(db: Session, event_id: int) -> dict:
 
     db.delete(event)
     db.commit()
+    _invalidate_event_cache(event_id)
     return {"message": f"Event '{event.name}' deleted successfully."}
 
 
@@ -184,6 +197,9 @@ def cancel_event(db: Session, event_id: int) -> dict:
     event.vvip_available = 0
 
     db.commit()
+
+    # Invalidate cache for this event and the global list
+    _invalidate_event_cache(event_id)
 
     return {
         "message": f"Event '{event.name}' has been cancelled.",

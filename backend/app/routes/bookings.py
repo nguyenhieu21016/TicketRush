@@ -7,6 +7,7 @@ from app.schemas import BookingCreateRequest, BookingListResponse, BookingRespon
 from app.services.booking_service import create_booking, get_user_bookings
 from app.services.ticket_email_service import send_booking_tickets_in_background
 from app.core.deps import get_current_user
+from app.core.rate_limit import booking_rate_limit
 from app.models import User
 
 
@@ -21,7 +22,8 @@ def create_booking_route(
     booking_data: BookingCreateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    _rate: None = Depends(booking_rate_limit),   # ← Rate limit guard (429)
 ):
     booking = create_booking(db, booking_data, user=user)
     background_tasks.add_task(send_booking_tickets_in_background, booking.id)

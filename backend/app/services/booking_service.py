@@ -13,6 +13,7 @@ from app.schemas import (
     BookingResponse,
     TicketResponse
 )
+from app.core.cache import cache_delete
 
 
 TIER_MULTIPLIERS: dict[str, Decimal] = {
@@ -159,6 +160,9 @@ def create_booking(
         )
 
     db.commit()
+    # Invalidate cached event data since available_tickets changed
+    cache_delete("events:list")
+    cache_delete(f"events:{booking_data.event_id}")
     return response
 
 
