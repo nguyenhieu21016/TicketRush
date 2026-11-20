@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  TicketRush — SQS queue for async ticket email delivery.
+  Source queue: ticketrush-ticket-queue (Standard)
+  Dead-Letter Queue: ticketrush-ticket-dlq (MaxReceiveCount = 3)
+  DynamoDB table: ticketrush-ticket-idempotency (for Lambda dedup)
+  CloudWatch Alarm: fires when DLQ depth > 0.
+
+Resources:
+
+  # ── Dead-Letter Queue ─────────────────────────────────────────────────────
+  TicketDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ticketrush-ticket-dlq
+      MessageRetentionPeriod: 1209600   # 14 days — enough time for ops to replay
+      Tags:
+        - Key: Project
+          Value: TicketRush
+
+  # ── Source Queue ──────────────────────────────────────────────────────────
+  TicketQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ticketrush-ticket-queue
+      VisibilityTimeout: 90             # > Lambda max timeout (60 s)
+      MessageRetentionPeriod: 345600    # 4 days
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt TicketDLQ.Arn
+        maxReceiveCount: 3              # retry 3 times before DLQ
+      Tags:
+        - Key: Project
+          Value: TicketRush
+
+  # ── DynamoDB idempotency table ────────────────────────────────────────────
+  IdempotencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ticketrush-ticket-idempotency
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: idempotency_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: idempotency_key
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true   # 24-h TTL set by Lambda; auto-cleaned by DynamoDB
+
+  # ── CloudWatch Alarm — DLQ depth > 0 ─────────────────────────────────────
+  DLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "TicketRush-TicketDLQ-NonEmpty"
+      AlarmDescription: "One or more ticket emails failed 3 retries and landed in the DLQ."
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt TicketDLQ.QueueName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      # Wire this to an SNS topic for email/PagerDuty alerts in production:
+      # AlarmActions:
+      #   - arn:aws:sns:ap-southeast-1:123456789012:ticketrush-ops-alerts
+
+Outputs:
+  TicketQueueUrl:
+    Description: "Set this as SQS_QUEUE_URL in the FastAPI backend .env"
+    Value: !Ref TicketQueue
+
+  TicketQueueArn:
+    Description: "Use as the event source ARN for the Lambda SQS trigger"
+    Value: !GetAtt TicketQueue.Arn
+
+  DLQUrl:
+    Value: !Ref TicketDLQ
+
+  IdempotencyTableName:
+    Description: "Set as IDEMPOTENCY_TABLE in the Lambda env vars"
+    Value: !Ref IdempotencyTable

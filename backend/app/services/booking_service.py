@@ -16,6 +16,7 @@ from app.schemas import (
     TicketResponse
 )
 from app.config import get_settings
+from app.core.cache import cache_delete
 
 settings = get_settings()
 
@@ -32,6 +33,12 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
+
+
+def _invalidate_event_cache(event_id: int) -> None:
+    """Invalidate cached event list and event detail when DB stock changes."""
+    cache_delete("events:list")
+    cache_delete(f"events:{event_id}")
 
 
 TIER_MULTIPLIERS: dict[str, Decimal] = {
@@ -197,6 +204,7 @@ def create_booking(
         )
 
         db.commit()
+        _invalidate_event_cache(booking_data.event_id)
         return response
 
     except Exception as e:
@@ -401,6 +409,7 @@ def confirm_booking(
             db.flush()
 
         db.commit()
+        _invalidate_event_cache(booking.event_id)
         db.refresh(booking)
 
         # Remove Redis hold key

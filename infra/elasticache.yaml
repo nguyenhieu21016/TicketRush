@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  TicketRush — ElastiCache Redis cluster (Serverless or single-node)
+  used for Cache-Aside (events list) and Rate Limiting (bookings).
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where the backend ECS/EC2 and RDS live.
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two private subnets in different AZs.
+
+  BackendSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group of the FastAPI backend (allowed to connect to Redis).
+
+Resources:
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "ElastiCache Redis — TicketRush"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref BackendSecurityGroupId
+      Tags:
+        - Key: Name
+          Value: ticketrush-redis-sg
+
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: "Subnet group for TicketRush Redis"
+      SubnetIds: !Ref PrivateSubnetIds
+
+  # Single-node Redis 7 (no cluster mode — sufficient for < 10 k RPS)
+  # Switch to ReplicationGroup with NumCacheClusters: 2 for HA in prod.
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: cache.t4g.micro   # cheapest ARM node (~$12/mo)
+      Engine: redis
+      EngineVersion: "7.1"
+      NumCacheNodes: 1
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds:
+        - !GetAtt RedisSecurityGroup.GroupId
+      AutoMinorVersionUpgrade: true
+      Tags:
+        - Key: Project
+          Value: TicketRush
+
+Outputs:
+  RedisEndpoint:
+    Description: "Redis connection string — set as REDIS_URL in backend .env"
+    Value: !Sub "redis://${RedisCluster.RedisEndpoint.Address}:${RedisCluster.RedisEndpoint.Port}/0"

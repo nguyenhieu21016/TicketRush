@@ -47,6 +47,24 @@ def get_current_user(
     return user
 
 
+def get_current_user_optional(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(None),
+) -> User | None:
+    """Trả về User nếu token hợp lệ, None nếu không có token (không raise lỗi)."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization.removeprefix("Bearer ").strip()
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        return None
+    try:
+        user_id = int(payload["sub"])
+    except (TypeError, ValueError):
+        return None
+    return db.query(User).filter(User.id == user_id).first()
+
+
 def require_admin(
     current_user: User = Depends(get_current_user),
 ) -> User:

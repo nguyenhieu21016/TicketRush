@@ -10,3 +10,4 @@ qrcode[pil]
 redis
 boto3
 botocore
+python-multipart

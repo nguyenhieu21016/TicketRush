@@ -32,6 +32,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ticketrush-redis
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     healthcheck:
