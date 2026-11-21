@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+import logging
 from datetime import datetime
 from app.models import Event, Booking, Ticket
 from app.schemas import (
@@ -21,12 +22,35 @@ from app.schemas import (
 )
 from app.core.cache import cache_delete
 
+try:
+    from app.services.redis_service import init_event_seats
+    REDIS_SEAT_SYNC_AVAILABLE = True
+except ImportError:
+    REDIS_SEAT_SYNC_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
+
 
 def _invalidate_event_cache(event_id: int | None = None) -> None:
     """Xóa cache danh sách sự kiện và (nếu có) cache chi tiết sự kiện cụ thể."""
     cache_delete("events:list")
     if event_id is not None:
         cache_delete(f"events:{event_id}")
+
+
+def _sync_event_seats_redis(event: Event) -> None:
+    """Đồng bộ số vé từng hạng của sự kiện lên ElastiCache Redis."""
+    if not REDIS_SEAT_SYNC_AVAILABLE:
+        return
+    try:
+        init_event_seats(
+            event_id=event.id,
+            standard=event.standard_available,
+            vip=event.vip_available,
+            vvip=event.vvip_available,
+        )
+    except Exception as exc:
+        logger.warning("Could not sync Redis seat counters for event %s: %s", event.id, exc)
 
 
 def _split_tier_tickets(total: int) -> tuple[int, int, int]:
@@ -61,7 +85,8 @@ def create_event(db: Session, request: EventCreateRequest) -> Event:
     db.add(new_event)
     db.commit()
     db.refresh(new_event)
-    # Invalidate list cache when a new event is created
+    # Sync seat counters to Redis & invalidate list cache
+    _sync_event_seats_redis(new_event)
     _invalidate_event_cache()
     return new_event
 
@@ -117,6 +142,8 @@ def update_event(db: Session, event_id: int, request: EventUpdateRequest) -> Eve
 
     db.commit()
     db.refresh(event)
+    if request.total_tickets is not None:
+        _sync_event_seats_redis(event)
     # Invalidate both list cache and this event's detail cache
     _invalidate_event_cache(event_id)
     return event
@@ -205,7 +232,8 @@ def cancel_event(db: Session, event_id: int) -> dict:
 
     db.commit()
 
-    # Invalidate cache for this event and the global list
+    # Sync zeroed seat counters to Redis & invalidate cache
+    _sync_event_seats_redis(event)
     _invalidate_event_cache(event_id)
 
     return {
