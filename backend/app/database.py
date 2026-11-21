@@ -5,13 +5,14 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Create database engine
+# Create database engine (sized for ASG up to 4 EC2 x 2 workers within RDS db.t3.micro ~64 max_connections)
 engine = create_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20
+    pool_recycle=1800,
+    pool_size=4,
+    max_overflow=2,
 )
 
 # Create database session factory
