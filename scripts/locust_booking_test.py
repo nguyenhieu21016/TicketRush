@@ -5,13 +5,21 @@ Simulates high concurrent load during event registration rush.
 Usage:
     locust -f locust_booking_test.py --host=http://localhost:8000
 
+Target a single 300-seat event (e.g. event_id=1 for demo Steps 6-8):
+    TARGET_EVENT_ID=1 locust -f locust_booking_test.py --host=http://<ALB_DNS>
+
 For headless mode:
-    locust -f locust_booking_test.py --host=http://localhost:8000 \
+    TARGET_EVENT_ID=1 locust -f locust_booking_test.py --host=http://<ALB_DNS> \
            --users=1500 --spawn-rate=25 --run-time=2m --headless
 """
 
+import os
 import random
+from uuid import uuid4
 from locust import HttpUser, task, between
+
+TARGET_EVENT_ID = os.getenv("TARGET_EVENT_ID", "").strip()
+TARGET_EVENT_ID_INT = int(TARGET_EVENT_ID) if TARGET_EVENT_ID.isdigit() else None
 
 
 class TicketRushUser(HttpUser):
@@ -19,14 +27,15 @@ class TicketRushUser(HttpUser):
 
     def on_start(self):
         """Register and login before booking."""
-        # Register a new user
-        self.email = f"user_{random.randint(10000, 99999)}@test.com"
+        # Unique @test.com email (Lambda skips SMTP for @test.com to protect Gmail quota)
+        uid = uuid4().hex[:10]
+        self.email = f"loadtest_{uid}@test.com"
         self.password = "TestPass123!"
 
         register_response = self.client.post("/api/auth/register", json={
             "email": self.email,
             "password": self.password,
-            "full_name": f"Test User {random.randint(1000, 9999)}"
+            "full_name": f"Load Test {uid[:6]}"
         })
 
         if register_response.status_code == 201:
@@ -52,7 +61,7 @@ class TicketRushUser(HttpUser):
     @task(1)
     def view_event_detail(self):
         """View specific event details."""
-        event_id = random.randint(1, 18)  # Assuming 18 events from seed
+        event_id = TARGET_EVENT_ID_INT or random.randint(1, 18)
         self.client.get(f"/api/events/{event_id}")
 
     @task(5)
@@ -61,9 +70,9 @@ class TicketRushUser(HttpUser):
         if not hasattr(self, 'headers') or not self.headers:
             return
 
-        event_id = random.randint(1, 18)
+        event_id = TARGET_EVENT_ID_INT or random.randint(1, 18)
         tier = random.choice(["STANDARD", "VIP", "VVIP"])
-        quantity = random.randint(1, 3)
+        quantity = 1 if TARGET_EVENT_ID_INT else random.randint(1, 3)
 
         with self.client.post(
             "/api/bookings/",
@@ -79,6 +88,9 @@ class TicketRushUser(HttpUser):
                 response.success()
             elif response.status_code == 409:
                 # Sold out is expected under high load
+                response.success()
+            elif response.status_code == 429:
+                # Rate limit triggered as designed
                 response.success()
             else:
                 response.failure(f"Unexpected status: {response.status_code}")

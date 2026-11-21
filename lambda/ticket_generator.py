@@ -187,7 +187,13 @@ def send_ticket_email(booking: dict, event: dict, tickets: list, qr_urls: dict, 
     Use SMTP when SMTP_HOST + SMTP_USERNAME + SMTP_PASSWORD are configured
     (bypasses SES Sandbox so any newly signed-up user receives tickets).
     Otherwise fall back to AWS SES.
+    Skips real email delivery for synthetic load-test addresses (*@test.com).
     """
+    recipient = (booking.get("buyer_email") or "").strip().lower()
+    if recipient.endswith("@test.com"):
+        logger.info("[booking=%s] Skipping email delivery for load-test address %s", booking.get("id"), recipient)
+        return
+
     smtp_host = os.getenv("SMTP_HOST", "").strip()
     smtp_user = os.getenv("SMTP_USERNAME", "").strip()
     smtp_pass = os.getenv("SMTP_PASSWORD", "").strip()
