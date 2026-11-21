@@ -269,28 +269,35 @@
       <div class="checkout-body">
         <!-- Countdown Timer Banner -->
         <div class="countdown-banner" id="countdownBanner">
-          <div class="countdown-icon">⏱️</div>
+          <div class="countdown-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="13" r="8"></circle>
+              <path d="M12 9v4l2.5 1.5"></path>
+              <path d="M9 2h6"></path>
+            </svg>
+          </div>
           <div class="countdown-info">
-            <span class="countdown-label">Time Remaining to Complete Payment:</span>
+            <span class="countdown-label">Time remaining to complete payment</span>
             <span class="countdown-timer" id="countdownTimer">10:00</span>
           </div>
         </div>
 
         <div class="checkout-summary-box">
           <div class="checkout-summary-row">
-            <span>Booking Code:</span>
+            <span>Booking Code</span>
             <code id="checkoutBookingCode">BK-XXXXX</code>
           </div>
           <div class="checkout-summary-row">
-            <span>Event:</span>
+            <span>Event</span>
             <strong id="checkoutEventTitle">Event Name</strong>
           </div>
           <div class="checkout-summary-row">
-            <span>Tier & Quantity:</span>
+            <span>Tier &amp; Quantity</span>
             <span id="checkoutTierQty">Standard x 1</span>
           </div>
           <div class="checkout-summary-row checkout-total-row">
-            <span>Total Payable:</span>
+            <span>Total Payable</span>
             <strong id="checkoutTotalAmount">£45.00</strong>
           </div>
         </div>
@@ -299,7 +306,14 @@
         <div class="payment-method-box">
           <label class="field-label">Simulated Payment Method</label>
           <div class="payment-card-preview">
-            <div class="payment-card-chip">💳 Mock Card</div>
+            <div class="payment-card-chip">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+              </svg>
+              <span>Mock Card</span>
+            </div>
             <div class="payment-card-number">•••• •••• •••• 4242</div>
             <div class="payment-card-meta">
               <span>Expires: 12/28</span>

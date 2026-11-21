@@ -1503,45 +1503,81 @@ body {
    ======================================================== */
 .checkout-dialog {
   max-width: 480px;
-  width: 90%;
+  width: 92%;
   background: var(--surface);
   border-radius: 16px;
-  padding: 24px;
+  padding: 28px 24px 24px;
+}
+
+.checkout-dialog .modal-header {
+  padding-right: 36px;
+  margin-bottom: 20px;
+}
+
+.checkout-dialog .modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+
+.checkout-dialog .modal-subtitle {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.checkout-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
 }
 
 .countdown-banner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   background: #FFFBEB;
   border: 1px solid #FDE68A;
   border-radius: 12px;
   padding: 14px 16px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .countdown-icon {
-  font-size: 26px;
-  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #FEF3C7;
+  color: #D97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .countdown-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .countdown-label {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 600;
   color: #92400E;
 }
 
 .countdown-timer {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
   color: #B45309;
-  letter-spacing: 1px;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1559,31 +1595,47 @@ body {
   background: #F9FAFB;
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
+  padding: 16px 18px;
+  margin-bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .checkout-summary-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  gap: 12px;
+  font-size: 13.5px;
   color: var(--text-muted);
 }
 
-.checkout-summary-row strong,
-.checkout-summary-row code {
+.checkout-summary-row strong {
   color: var(--text-main);
   font-weight: 600;
+  text-align: right;
+}
+
+.checkout-summary-row code {
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 12.5px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
 .checkout-total-row {
   border-top: 1px dashed var(--border-subtle);
-  padding-top: 10px;
-  margin-top: 4px;
+  padding-top: 12px;
+  margin-top: 2px;
+}
+
+.checkout-total-row span {
+  font-weight: 600;
+  color: var(--text-main);
 }
 
 .checkout-total-row strong {
@@ -1593,36 +1645,43 @@ body {
 }
 
 .payment-method-box {
-  margin-bottom: 24px;
+  margin-bottom: 0;
+}
+
+.payment-method-box .field-label {
+  margin-bottom: 10px;
 }
 
 .payment-card-preview {
   background: linear-gradient(135deg, #1E293B, #0F172A);
   color: white;
   border-radius: 12px;
-  padding: 16px 20px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+  padding: 18px 20px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .payment-card-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #94A3B8;
+  color: #CBD5E1;
 }
 
 .payment-card-number {
   font-size: 16px;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 2px;
 }
 
 .payment-card-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 12px;
   color: #94A3B8;
 }
 
@@ -1630,4 +1689,5 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding-top: 2px;
 }
