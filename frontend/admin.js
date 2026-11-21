@@ -367,7 +367,7 @@ if (posterFileInput) {
 
     statusEl.style.display = 'block';
     statusEl.className = 'upload-status loading';
-    statusEl.textContent = `Uploading ${file.name} to AWS S3...`;
+    statusEl.textContent = `Uploading ${file.name}...`;
 
     const formData = new FormData();
     formData.append('file', file);
@@ -392,12 +392,12 @@ if (posterFileInput) {
       showPosterPreview(data.url);
 
       statusEl.className = 'upload-status success';
-      statusEl.textContent = '✅ Poster uploaded to S3 successfully!';
-      showToast('Poster uploaded to S3!');
+      statusEl.textContent = 'Poster uploaded successfully.';
+      showToast('Poster uploaded!');
     } catch (err) {
       console.error('Poster upload failed:', err);
       statusEl.className = 'upload-status error';
-      statusEl.textContent = `❌ ${err.message || 'Failed to upload poster'}`;
+      statusEl.textContent = err.message || 'Failed to upload poster';
       showToast('Failed to upload poster.');
     }
   });
