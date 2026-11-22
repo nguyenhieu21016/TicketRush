@@ -1,0 +1,245 @@
+% ============================================================================
+% BÁO CÁO BÀI TẬP LỚN CUỐI KỲ - INT 3319 3: ĐIỆN TOÁN ĐÁM MÂY
+% Trình bày theo chuẩn Template Luận văn / Khóa luận UET - ĐHQGHN
+% Font mặc định LaTeX (Computer Modern T5), 2 lề cân đối 2.5cm
+% Biên dịch: pdflatex main.tex (2 lần) hoặc `make build` (tương thích 100% Overleaf)
+% ============================================================================
+\documentclass[12pt,a4paper,oneside]{report}
+
+% ---- Ngôn ngữ & Phông chữ mặc định của LaTeX (Computer Modern T5) ----
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+\usepackage{indentfirst}
+
+% ---- Bố cục trang chuẩn luận văn (2 lề trái/phải cân đối tuyệt đối) ----
+\usepackage[
+  top=2.5cm,
+  bottom=2.5cm,
+  left=2.5cm,
+  right=2.5cm
+]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\parindent}{1.0cm}
+\setlength{\parskip}{4pt}
+\setlength{\emergencystretch}{3em}
+\sloppy
+
+% ---- Toán học, Đồ họa, Bảng biểu, Hộp thông tin, TikZ ----
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage[table,dvipsnames]{xcolor}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric,arrows.meta,positioning,fit,backgrounds,calc}
+\usepackage{xurl}
+\usepackage{caption}
+\captionsetup{
+  font=small,
+  labelfont=bf,
+  justification=centering,
+  skip=6pt
+}
+
+% ---- Bảng màu học thuật trang nhã (chuẩn luận văn) ----
+\definecolor{uetblue}{HTML}{1B365D}      % Xanh navy đậm trang trọng cho điểm nhấn nhẹ
+\definecolor{uetaccent}{HTML}{B45309}    % Nâu cam trầm cho nhánh bất đồng bộ trên sơ đồ
+\definecolor{softbg}{HTML}{F7F8FA}       % Xám rất nhạt cho hộp trích dẫn / code
+\definecolor{warnbg}{HTML}{FFFBEB}
+\definecolor{warnborder}{HTML}{B45309}
+
+% ---- Header & Footer chuẩn Luận văn (không bao giờ dính chữ!) ----
+\usepackage{fancyhdr}
+\setlength{\headheight}{16pt}
+\setlength{\headsep}{18pt}
+
+% Chỉ lấy "Chương X" hoặc tiêu đề ngắn gọn vào \leftmark, tránh tràn sang bên phải
+\renewcommand{\chaptermark}[1]{%
+  \markboth{\chaptername\ \thechapter.\ #1}{}%
+}
+
+\fancypagestyle{thesis}{
+  \fancyhf{}
+  \fancyhead[L]{\footnotesize\itshape\color{black!70}\nouppercase{\leftmark}}
+  \fancyhead[R]{\footnotesize\itshape\color{black!70}TicketRush - INT 3319 3}
+  \fancyfoot[C]{\small\thepage}
+  \renewcommand{\headrulewidth}{0.4pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
+
+% Trang mở đầu chương: không có header, chỉ đánh số trang ở giữa dưới chân trang
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\small\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
+\pagestyle{thesis}
+
+% ---- Định dạng Tiêu đề Chương / Mục chuẩn Luận văn ----
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{black}}
+  {\filleft\large\MakeUppercase{\chaptertitlename}\ \thechapter}
+  {4pt}
+  {\titlerule[0.8pt]\vspace{6pt}\filright\LARGE}
+  [\vspace{4pt}\titlerule]
+\titlespacing*{\chapter}{0pt}{-25pt}{20pt}
+
+% Chương không đánh số (Mục lục, Tóm tắt, Tài liệu tham khảo...)
+\titleformat{name=\chapter,numberless}[block]
+  {\normalfont\Large\bfseries\centering\MakeUppercase}
+  {}
+  {0pt}
+  {}
+  [\vspace{4pt}\titlerule]
+\titlespacing*{name=\chapter,numberless}{0pt}{-20pt}{18pt}
+
+\titleformat{\section}
+  {\normalfont\large\bfseries}{\thesection}{0.8em}{}
+\titlespacing*{\section}{0pt}{14pt}{6pt}
+
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries}{\thesubsection}{0.8em}{}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+
+% ---- Code Listings ----
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{softbg},
+  frame=tb,
+  framerule=0.5pt,
+  rulecolor=\color{black!40},
+  breaklines=true,
+  breakatwhitespace=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  tabsize=2,
+  showstringspaces=false,
+  captionpos=b,
+  keywordstyle=\color{uetblue}\bfseries,
+  commentstyle=\color{black!55}\itshape,
+  stringstyle=\color{uetaccent},
+}
+
+% ---- Liên kết & Siêu dữ liệu PDF (hidelinks chuẩn in luận văn) ----
+\usepackage[hidelinks,unicode]{hyperref}
+\hypersetup{
+  pdftitle={Bao cao BTL Dien toan dam may - TicketRush},
+  pdfauthor={Phan Huy Anh, Nguyen Tat Binh, Tran Duc Hoang, Nguyen Van Hieu},
+  colorlinks=false
+}
+
+% ---- Macro tiện ích ----
+% 1) Đánh dấu chỗ cần điền thông tin bổ sung
+\newcommand{\todo}[1]{%
+  \textcolor{warnborder}{\textbf{[CẦN BỔ SUNG: #1]}}%
+}
+
+% 2) Hộp lý giải lựa chọn công nghệ (CLO2) phong cách học thuật
+\newtcolorbox{clo2box}[1]{
+  colback=softbg,
+  colframe=black!45,
+  coltitle=black,
+  colbacktitle=black!8,
+  fonttitle=\bfseries\small,
+  title={Lý do lựa chọn công nghệ},
+  breakable,
+  arc=2pt,
+  boxrule=0.6pt,
+  left=8pt,
+  right=8pt,
+  top=6pt,
+  bottom=6pt
+}
+
+% 3) Chèn hình thông minh (tự chèn nếu có ảnh trong images/, không thì hiện khung mẫu)
+\newcommand{\smartfigure}[4]{%
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{images/#1}{%
+      \includegraphics[width=\textwidth,height=0.72\textheight,keepaspectratio]{images/#1}%
+    }{%
+      \begin{tcolorbox}[
+        width=0.92\textwidth,
+        colback=softbg,
+        colframe=black!35,
+        arc=2pt,
+        boxrule=0.6pt,
+        halign=center
+      ]
+        \vspace{0.5cm}
+        \textbf{[Vị trí chèn ảnh minh chứng: \texttt{\detokenize{images/#1}}]}\\[5pt]
+        {\small\itshape #4}
+        \vspace{0.5cm}
+      \end{tcolorbox}
+    }%
+    \caption{#2}
+    \label{#3}
+  \end{figure}
+}
+
+% Tùy chỉnh tên mặc định tiếng Việt cho hình/bảng/tài liệu tham khảo
+\addto\captionsvietnamese{%
+  \renewcommand{\chaptername}{Chương}%
+  \renewcommand{\figurename}{Hình}%
+  \renewcommand{\tablename}{Bảng}%
+  \renewcommand{\contentsname}{Mục lục}%
+  \renewcommand{\listfigurename}{Danh mục hình vẽ}%
+  \renewcommand{\listtablename}{Danh mục bảng biểu}%
+  \renewcommand{\bibname}{Tài liệu tham khảo}%
+}
+
+\begin{document}
+
+% ---- Trang bìa chuẩn Luận văn UET ----
+\hypersetup{pageanchor=false}
+\input{sections/00_cover}
+\hypersetup{pageanchor=true}
+
+% ---- Phần đầu luận văn (số trang La Mã i, ii, iii...) ----
+\pagenumbering{roman}
+\pagestyle{plain}
+\input{sections/00b_frontmatter}
+
+{\setstretch{1.20}
+\tableofcontents
+}
+\clearpage
+\addcontentsline{toc}{chapter}{Danh mục hình vẽ}
+{\singlespacing
+\listoffigures
+}
+\clearpage
+\addcontentsline{toc}{chapter}{Danh mục bảng biểu}
+{\setstretch{1.20}
+\listoftables
+}
+\clearpage
+
+% ---- Nội dung chính (số trang Ả Rập 1, 2, 3...) ----
+\pagenumbering{arabic}
+\pagestyle{thesis}
+\input{sections/01_gioi_thieu}
+\input{sections/02_kien_truc_ha_tang}
+\input{sections/03_luu_tru_du_lieu}
+\input{sections/04_bao_mat_iam}
+\input{sections/05_ung_dung_api}
+\input{sections/06_giam_sat_kiem_thu}
+\input{sections/07_chi_phi_ket_luan}
+
+% ---- Tài liệu tham khảo ----
+\input{sections/08_tai_lieu_tham_khao}
+
+\end{document}

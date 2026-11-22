@@ -1,0 +1,85 @@
+\chapter[Tổng quan bài toán và yêu cầu]{Tổng quan bài toán và yêu cầu hệ thống}
+
+\section{Đặt vấn đề thực tế}
+Trong thực tế tổ chức các sự kiện có quy mô giới hạn chỗ ngồi (hội thảo chuyên đề, workshop công nghệ, buổi hòa nhạc, sự kiện thể thao), mô hình lưu lượng truy cập mang tính đặc thù rất rõ rệt gọi là \textbf{tải đột biến (flash-sale / spiky traffic)}:
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Giai đoạn mở bán (vài phút đầu tiên):} Hàng trăm đến hàng nghìn người dùng truy cập đồng thời tại cùng một thời điểm để xem thông tin sự kiện và giành quyền đặt số lượng vé hữu hạn (ví dụ 300 vé/sự kiện).
+  \item \textbf{Hệ quả khi triển khai truyền thống trên máy chủ đơn lẻ:} Máy chủ dễ bị quá tải CPU/RAM dẫn đến sập dịch vụ (\textit{HTTP 502/504}); nhiều luồng ghi đồng thời vào cơ sở dữ liệu dễ xảy ra tranh chấp dữ liệu (\textit{race condition}), gây tình trạng \textbf{bán vượt số chỗ (overselling)} hoặc gửi trùng vé; các tác vụ chậm như sinh ảnh mã QR và gửi email trực tiếp trong luồng HTTP làm nghẽn kết nối.
+  \item \textbf{Giai đoạn ngoài giờ cao điểm:} Sau khi vé được bán hết hoặc ngoài khung giờ mở bán, lưu lượng truy cập giảm gần về 0. Nếu thuê cố định một cụm máy chủ cấu hình lớn để đón đỉnh tải thì sẽ gây lãng phí chi phí vận hành hàng tháng.
+\end{itemize}
+
+Từ bài toán thực tế trên, nhóm xây dựng \textbf{TicketRush} - hệ thống đăng ký và đặt vé sự kiện trực tuyến có khả năng chịu tải đột biến, tự động co giãn và đảm bảo tính toàn vẹn dữ liệu trên nền tảng \textbf{Amazon Web Services (AWS)}, triển khai tại vùng \textbf{Asia Pacific (Singapore) - \texttt{ap-southeast-1}}.
+
+\section{Đối tượng sử dụng và yêu cầu hệ thống}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Người tham dự (User):} Duyệt danh sách sự kiện, tìm kiếm/lọc theo danh mục, đăng ký/đăng nhập tài khoản, chọn hạng vé (\texttt{STANDARD}, \texttt{VIP}, \texttt{VVIP}), giữ chỗ tạm thời với đồng hồ đếm ngược 10 phút, xác nhận thanh toán giả lập, xem lịch sử vé đã mua và nhận email xác nhận kèm ảnh mã QR.
+  \item \textbf{Ban tổ chức (Admin):} Quản trị sự kiện (tạo mới, chỉnh sửa, hủy sự kiện, tải lên ảnh poster sự kiện lên S3), theo dõi danh sách đơn đặt vé, xuất báo cáo định dạng CSV (hỗ trợ UTF-8), gửi lại email vé và thực hiện \textbf{Check-in mã QR tại cổng} (chặn vé đã hủy và chặn quét vé trùng lặp).
+\end{itemize}
+
+Hệ thống hướng đến 5 yêu cầu phi chức năng cốt lõi:
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Chịu được đỉnh tải và tự co giãn theo tải:} Cân bằng tải đa vùng sẵn sàng (Multi-AZ) và tự động tăng/giảm số lượng máy chủ EC2 theo lưu lượng thực tế.
+  \item \textbf{Tuyệt đối không bán vượt số chỗ:} Kết hợp trừ nguyên tử (atomic) trên RAM của ElastiCache Redis với câu lệnh \texttt{UPDATE ... WHERE available\_tickets >= quantity} và ràng buộc \texttt{CHECK} trong RDS MySQL.
+  \item \textbf{Tách tác vụ chậm khỏi luồng đặt vé:} Đẩy việc tạo ảnh QR, tải lên S3 và gửi email ra xử lý bất đồng bộ qua SQS + Lambda, kèm cơ chế chống trùng lặp (Idempotency) trên DynamoDB và hàng đợi thư chết (DLQ).
+  \item \textbf{Bảo vệ dữ liệu cá nhân và hạ tầng:} Tách mạng 3 tầng, đặt ứng dụng và cơ sở dữ liệu trong Private Subnet, phân quyền bằng IAM Role, quản lý mật khẩu qua Secrets Manager, mã hóa dữ liệu lúc truyền (TLS/HTTPS) và lúc lưu trữ (AES-256).
+  \item \textbf{Tối ưu chi phí ngoài giờ cao điểm:} Tự động scale-in khi hết tải, phục vụ tệp tĩnh qua S3 + CloudFront CDN và thiết kế tài nguyên phù hợp ngân sách vận hành.
+\end{enumerate}
+
+\section{Đối chiếu với 8 hạng mục bắt buộc}
+Bảng~\ref{tab:clo4-mapping} đối chiếu chi tiết từng hạng mục bắt buộc trong tiêu chí đánh giá môn học với thành phần nhóm đã triển khai thực tế trên AWS (tài khoản \texttt{016370843094}, vùng \texttt{ap-southeast-1}):
+
+{\small
+\renewcommand{\arraystretch}{1.20}
+\begin{longtable}{c >{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash}p{8.7cm} c}
+  \caption{Bảng đối chiếu 8 hạng mục bắt buộc của học phần với hệ thống TicketRush}
+  \label{tab:clo4-mapping} \\
+  \toprule
+  \textbf{\#} & \textbf{Hạng mục bắt buộc} & \textbf{Thành phần đã triển khai thực tế trên AWS} & \textbf{Kết quả} \\
+  \midrule
+  \endfirsthead
+  \caption[]{Bảng đối chiếu 8 hạng mục bắt buộc của học phần với hệ thống TicketRush (tiếp)} \\
+  \toprule
+  \textbf{\#} & \textbf{Hạng mục bắt buộc} & \textbf{Thành phần đã triển khai thực tế trên AWS} & \textbf{Kết quả} \\
+  \midrule
+  \endhead
+  \midrule
+  \multicolumn{4}{r}{\textit{(Xem tiếp trang sau)}} \\
+  \endfoot
+  \bottomrule
+  \endlastfoot
+  1 & Mạng riêng VPC, public \& private subnet trên $\ge$ 2 AZ &
+    VPC \texttt{ticketrush-vpc} (\texttt{10.0.0.0/16}) trải trên 2 AZ (\texttt{ap-southeast-1a}, \texttt{1b}) với 6 subnet (2 Public, 2 Private App, 2 Private Data), Internet Gateway, NAT Gateway, Route Tables \& 3 Security Groups phân tầng. & Đạt \\
+  \addlinespace[6pt]
+  2 & Máy chủ ứng dụng trong private subnet, không phơi ra Internet &
+    Các EC2 \texttt{t3.small} do Auto Scaling Group quản lý chạy trong \texttt{tr-app-a/b}, không có Public IP, chỉ nhận lưu lượng cổng \texttt{8000} từ Security Group của ALB (\texttt{tr-alb-sg}). & Đạt \\
+  \addlinespace[6pt]
+  3 & Sử dụng $\ge$ 2 loại lưu trữ khác nhau kèm lý giải &
+    \textbf{Object Storage (S3):} \texttt{ticketrush-web} (Static Web qua CloudFront OAC) và \texttt{ticketrush-assets-hieu} (poster sự kiện + vé QR mã hóa AES-256). \textbf{Block Storage (EBS \texttt{gp3}):} ổ 20 GiB gắn vào từng EC2 chạy OS, Docker image và log. & Đạt \\
+  \addlinespace[6pt]
+  4 & Cơ sở dữ liệu quản trị sẵn kèm lý giải &
+    \textbf{Amazon RDS MySQL 8.4.11} (\texttt{db.t3.micro}, \textbf{Multi-AZ = true}, Private) lưu dữ liệu giao dịch ACID; bổ trợ \textbf{ElastiCache Redis 7.1} (\texttt{cache.t3.micro}, TLS) cho giữ chỗ TTL, Cache-Aside và Rate Limiting; \textbf{DynamoDB} cho bảng Idempotency. & Đạt \\
+  \addlinespace[6pt]
+  5 & Phân quyền bằng IAM Role, không nhúng khóa vào mã nguồn &
+    EC2 sử dụng Instance Profile \texttt{ticketrush-ec2-role}; Lambda dùng Execution Role riêng; mật khẩu DB lưu trong \textbf{AWS Secrets Manager}; mã nguồn GitHub không chứa AWS Access Key hay tệp \texttt{.env}. & Đạt \\
+  \addlinespace[6pt]
+  6 & Cân bằng tải và tự động mở rộng, demo được khi tải tăng &
+    \textbf{ALB} (\texttt{ticketrush-alb}) + \textbf{ASG} (\texttt{ticketrush-asg}, Min 2 / Max 4) với chính sách Target Tracking \texttt{ticketrush-alb-request-tracking} theo \texttt{ALBRequestCountPerTarget}, tự động scale-out/scale-in theo lưu lượng thực tế. & Đạt \\
+  \addlinespace[6pt]
+  7 & Giám sát và $\ge$ 1 cảnh báo kích hoạt thử &
+    \textbf{CloudWatch Dashboard} (\texttt{TicketRush}) theo dõi ALB, EC2, RDS, SQS; bộ 7 \textbf{CloudWatch Alarms} (\texttt{high-cpu}, \texttt{http-errors}, \texttt{unhealthy-targets}, \texttt{DLQ}, TargetTracking) kết nối \textbf{SNS} gửi cảnh báo email. & Đạt \\
+  \addlinespace[6pt]
+  8 & Bảng ước tính chi phí hàng tháng nếu chạy thật &
+    Bảng ước tính chi tiết từng dịch vụ theo biểu phí \texttt{ap-southeast-1} (khoảng \textbf{\$196/tháng} theo cấu hình gốc và cập nhật kèm CloudFront/DynamoDB). & Đạt \\
+\end{longtable}
+}
+
+\section{Các cải tiến mở rộng so với đề xuất ban đầu}
+Bên cạnh việc hoàn thành 8/8 hạng mục bắt buộc, nhóm đã nâng cấp thêm nhiều cơ chế chuẩn hệ thống thực tế (production hardening):
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Amazon CloudFront CDN + Origin Access Control (OAC):} Phân phối giao diện tĩnh qua HTTPS (\texttt{https://d3m6e24vu2nkwf.cloudfront.net}), khóa hoàn toàn truy cập trực tiếp vào S3 \texttt{ticketrush-web} và định tuyến ngược \texttt{/api/*} về ALB giúp tránh lỗi Mixed Content và CORS.
+  \item \textbf{Giữ chỗ tạm thời 2 bước có TTL (10 phút):} Cho phép người dùng giữ ghế trên Redis trong thời gian thanh toán, tự động hoàn vé nếu hủy hoặc hết hạn.
+  \item \textbf{Redis Cache-Aside \& Rate Limiting:} Giảm tải truy vấn đọc danh sách sự kiện xuống RDS bằng bộ đệm trên RAM và chặn hành vi spam đặt vé vượt 10 yêu cầu/phút (\texttt{HTTP 429}).
+  \item \textbf{QR Check-in tại cổng \& Upload Poster S3:} Hoàn thiện vòng đời vé từ lúc mua tới lúc soát vé thực tế, tự động đồng bộ bộ đếm Redis khi Admin tạo/cập nhật/hủy sự kiện.
+  \item \textbf{DynamoDB Idempotency + SQS DLQ + SMTP Fallback:} Đảm bảo xử lý phát hành vé đúng một lần (\textit{exactly-once}), tự động đưa thông điệp lỗi sau 3 lần thử vào DLQ và hỗ trợ gửi email tới mọi địa chỉ đăng ký mới vượt qua giới hạn SES Sandbox.
+  \item \textbf{Infrastructure as Code (IaC):} Chuẩn hóa các mẫu AWS CloudFormation cho CloudFront, ElastiCache và SQS/DLQ/DynamoDB trong thư mục \texttt{infra/}.
+\end{itemize}

@@ -1,0 +1,80 @@
+\chapter[Chi phí, đánh giá và kết luận]{Ước tính chi phí vận hành, đánh giá giải pháp và kết luận}
+
+\section{Bảng ước tính chi phí vận hành hàng tháng (Hạng mục \#8)}
+Bảng~\ref{tab:cost-estimate} trình bày ước tính chi phí vận hành 24/7 trong 1 tháng (730 giờ) tại vùng \textbf{Asia Pacific (Singapore) - \texttt{ap-southeast-1}} theo AWS Pricing Calculator, bao gồm cấu hình nền từ bản đề xuất và các dịch vụ nâng cấp đã triển khai thực tế:
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \renewcommand{\arraystretch}{1.18}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.3cm} >{\raggedright\arraybackslash}X r}
+    \toprule
+    \textbf{Dịch vụ AWS} & \textbf{Cấu hình sử dụng} & \textbf{Chi phí (USD/tháng)} \\
+    \midrule
+    Amazon EC2 & \texttt{t3.small} $\times$ 2 máy chạy nền (scale-out lên 4 máy chỉ trong giờ mở bán) & \$39.00 \\
+    Amazon EBS & \texttt{gp3} 20 GiB $\times$ 2 ổ đĩa & \$4.00 \\
+    NAT Gateway & 1 NAT Gateway tại \texttt{tr-public-a} + lưu lượng xử lý & \$48.00 \\
+    Amazon RDS MySQL & \texttt{db.t3.micro} \textbf{Multi-AZ} (20 GiB \texttt{gp3}, backup 7 ngày) & \$42.00 \\
+    Amazon ElastiCache & Redis \texttt{cache.t3.micro} $\times$ 1 nút (bật TLS) & \$15.00 \\
+    Application Load Balancer & 1 ALB chạy 24/7 + LCU cơ bản & \$23.00 \\
+    Địa chỉ IPv4 Public \& Data Out & IPv4 cho ALB (2 AZ), NAT Gateway (1) + dữ liệu ra ngoài & \$16.00 \\
+    S3, SQS, Lambda, SES/SMTP & S3 10 GB, SQS + DLQ, Lambda (< 1 triệu lượt), SES & \$3.00 \\
+    CloudWatch + SNS & Dashboard, 7 Alarms, Logs, thông báo email SNS & \$6.00 \\
+    CloudFront + DynamoDB \textit{(mở rộng)} & Nằm trong Free Tier / \texttt{PAY\_PER\_REQUEST} lưu lượng đồ án ($\le$ 1 TB/tháng) & \$0.00 - \$2.00 \\
+    \midrule
+    \multicolumn{2}{r}{\textbf{Tổng chi phí ước tính vận hành 24/7}} & \textbf{$\approx$ \$196 - \$198 / tháng} \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Bảng ước tính chi phí vận hành hàng tháng của hệ thống TicketRush trên AWS \texttt{ap-southeast-1}}
+  \label{tab:cost-estimate}
+\end{table}
+
+\noindent\textbf{Các chiến lược tối ưu chi phí đã áp dụng:}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Auto Scale-in ngoài giờ cao điểm:} Giữ chỉ 2 máy \texttt{t3.small} (đủ đảm bảo High Availability trên 2 AZ) khi lưu lượng thấp, chỉ trả thêm tiền cho máy thứ 3-4 trong vài chục phút cao điểm mở bán.
+  \item \textbf{Phục vụ tệp tĩnh qua S3 + CloudFront thay vì EC2:} Giảm tải CPU/băng thông cho EC2 và tận dụng gói miễn phí 1 TB truyền tải/tháng của CloudFront.
+  \item \textbf{Tắt máy Bastion khi không vận hành:} Máy mẫu \texttt{ticketrush-backend} chỉ bật khi bảo trì hoặc chạy migration và luôn ở trạng thái \texttt{Stopped} khi vận hành thường nhật.
+  \item \textbf{DynamoDB \texttt{PAY\_PER\_REQUEST} và TTL 24h:} Chỉ trả phí khi có yêu cầu thực tế, không tốn phí duy trì dung lượng lưu trữ nhờ tự động xóa bản ghi hết hạn.
+\end{itemize}
+
+\section{Tổng hợp lý do lựa chọn công nghệ}
+Bảng~\ref{tab:clo2-summary} tóm tắt các quyết định kiến trúc quan trọng nhất của nhóm và lý do kỹ thuật so với các phương án thay thế:
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{3.1cm} >{\raggedright\arraybackslash}X}
+    \toprule
+    \textbf{Thành phần} & \textbf{Phương án chọn} & \textbf{Lý giải so với phương án thay thế} \\
+    \midrule
+    Kiến trúc mạng & VPC 3 tầng trên 2 AZ, EC2 ở Private Subnet & Thay vì đặt EC2 ở Public Subnet dễ bị tấn công trực tiếp cổng ứng dụng; đặt ở Private Subnet và đi qua ALB giúp tăng bảo mật và chịu lỗi khi 1 AZ gặp sự cố. \\
+    \midrule
+    Phân phối Frontend & S3 + CloudFront OAC (HTTPS) & Thay vì S3 Static Website thuần HTTP hoặc đặt file tĩnh trên EC2; CloudFront OAC cho HTTPS chuẩn, giấu kín S3 và giảm độ trễ toàn cầu. \\
+    \midrule
+    Cơ sở dữ liệu chính & RDS MySQL 8.4 Multi-AZ & Thay vì tự cài MySQL trên EC2 (tốn công quản trị, rủi ro mất dữ liệu) hay NoSQL thuần (khó đảm bảo giao dịch ACID đa bảng sự kiện-đơn hàng-vé). \\
+    \midrule
+    Chống bán lố & Redis \texttt{DECRBY} + RDS Atomic \texttt{UPDATE} & Thay vì chỉ khóa bảng trên MySQL (gây nghẽn lock khi tải lớn) hoặc chỉ đếm trên RAM (mất dữ liệu nếu khởi động lại); kết hợp hai tầng vừa nhanh vừa bền vững. \\
+    \midrule
+    Phát hành vé \& Mail & SQS + DLQ + Lambda + DynamoDB & Thay vì gửi email đồng bộ trong API (làm nghẽn worker khi tải đột biến) hoặc BackgroundTasks nội bộ (mất việc khi container bị hủy lúc scale-in). \\
+    \midrule
+    Đóng gói triển khai & Golden AMI + Docker Compose & Thay vì User Data tải mã \& build lại lúc boot (chậm, dễ lỗi mạng); Golden AMI giúp máy mới khởi động container nhanh chóng từ image dựng sẵn. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Tổng hợp đánh giá và lý do lựa chọn công nghệ của hệ thống TicketRush}
+  \label{tab:clo2-summary}
+\end{table}
+
+\section{Hạn chế hiện tại và hướng phát triển}
+Mặc dù hệ thống đã đáp ứng đầy đủ 8/8 hạng mục bắt buộc và vận hành thực tế ổn định, nhóm nhìn nhận một số hạn chế trong phạm vi đồ án và đề xuất hướng nâng cấp cho môi trường sản xuất thực tế:
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Giới hạn kết nối của RDS \texttt{db.t3.micro}:} Khi quy mô vượt quá 4 EC2 hoặc hàng nghìn giao dịch ghi/giây, cần bổ sung \textbf{Amazon RDS Proxy} để gom và tái sử dụng kết nối, kết hợp nâng cấp lớp máy chủ RDS hoặc bổ sung \textbf{Read Replica} cho các truy vấn báo cáo Admin.
+  \item \textbf{Tên miền riêng, chứng chỉ ACM và AWS SES Production:} Hiện tại hệ thống dùng tên miền mặc định \texttt{*.cloudfront.net} và kênh Gmail SMTP cho email đăng ký mới. Khi triển khai thương mại, cần đăng ký tên miền riêng (Route 53), cấp chứng chỉ TLS qua AWS ACM, cấu hình SPF/DKIM/DMARC và xin cấp quyền \textit{SES Production Access} để gửi hàng chục nghìn email/giờ.
+  \item \textbf{Tự động hóa triển khai (CI/CD) \& Hạ tầng hoàn chỉnh bằng IaC:} Mở rộng các mẫu CloudFormation hiện có trong \texttt{infra/} sang toàn bộ VPC/ALB/ASG/RDS (hoặc Terraform), tích hợp GitHub Actions để tự động build image đẩy lên Amazon ECR và thực hiện rolling deployment.
+  \item \textbf{Tích hợp cổng thanh toán thực và AWS WAF:} Kết nối cổng thanh toán thật (VNPay/Stripe) thông qua webhook cho bước xác nhận đơn \texttt{PENDING}, và gắn thêm \textbf{AWS WAF} trước CloudFront để lọc tấn công DDoS/bot ở tầng L7.
+\end{enumerate}
+
+\section{Kết luận}
+Qua quá trình thực hiện bài tập lớn môn \textit{Điện toán đám mây}, nhóm đã thiết kế, tự tay triển khai và kiểm chứng thực tế hệ thống \textbf{TicketRush} trên nền tảng Amazon Web Services. Hệ thống hoàn thành \textbf{8/8 hạng mục bắt buộc} với hạ tầng mạng 3 tầng trên 2 AZ, ứng dụng đặt trong Private Subnet, lưu trữ đa dạng (S3, EBS, DynamoDB), cơ sở dữ liệu RDS Multi-AZ kết hợp ElastiCache Redis TLS, phân quyền chặt chẽ bằng IAM Role \& Secrets Manager, cân bằng tải và tự động co giãn theo tải thực tế, giám sát tập trung qua CloudWatch/SNS và bảng ước tính chi phí chi tiết.
+
+Quan trọng hơn, kết quả thực nghiệm kiểm thử chịu tải thực tế bằng Locust với 600 người dùng ảo (455.250 yêu cầu) đã kiểm chứng trọn vẹn tính đúng đắn của kiến trúc: hệ thống đạt ổn định 289-291 RPS với độ trễ trung vị 63 ms (p95 = 130 ms), tỉ lệ lỗi tổng chỉ 0,41\% (0 lỗi/giây sau khi Auto Scaling mở rộng từ 2 lên 4 EC2 trong 65 giây), kích hoạt cảnh báo CloudWatch/SNS qua email, tự phục hồi khi có node trượt Health Check và bán chính xác 300/300 vé không bán lố - qua đó củng cố vững chắc tư duy thiết kế và lựa chọn giải pháp công nghệ đám mây.

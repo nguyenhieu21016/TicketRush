@@ -1,0 +1,101 @@
+\chapter[Giám sát và kiểm thử chịu tải]{Giám sát hệ thống, kiểm thử chịu tải và tối ưu cấu hình}
+
+\section{Giám sát bằng CloudWatch Dashboard, Alarms và SNS}
+Để đảm bảo khả năng quan sát toàn diện (\textit{Observability}) và phản ứng sự cố tự động (Hạng mục \#7), nhóm xây dựng bảng điều khiển tập trung \textbf{CloudWatch Dashboard (\texttt{TicketRush})} cùng hệ thống 7 cảnh báo (\textbf{CloudWatch Alarms}) nối với \textbf{Amazon SNS} gửi thông báo qua email quản trị:
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.3cm} >{\raggedright\arraybackslash}p{3.9cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.7cm}}
+    \toprule
+    \textbf{Tên Alarm} & \textbf{Chỉ số (Metric)} & \textbf{Điều kiện kích hoạt} & \textbf{Hành động} \\
+    \midrule
+    \texttt{TargetTracking-...-AlarmHigh} & \texttt{ALBRequestCountPerTarget} & $> 3000$ trong 3 phút liên tiếp & Kích hoạt ASG Scale-out \\
+    \texttt{TargetTracking-...-AlarmLow} & \texttt{ALBRequestCountPerTarget} & $< 2100$ trong 15 phút liên tiếp & Kích hoạt ASG Scale-in \\
+    \texttt{ticketrush-high-cpu} & \texttt{EC2 CPUUtilization} & $> 60\%$ trong 1 phút & Gửi email cảnh báo SNS \\
+    \texttt{ticketrush-http-errors} & \texttt{HTTPCode\_ELB\_5XX\_Count} & $> 10$ lỗi trong 1 phút & Gửi email cảnh báo SNS \\
+    \texttt{ticketrush-unhealthy-targets} & \texttt{UnHealthyHostCount} & $\ge 1$ target lỗi trong 1 phút & Gửi email cảnh báo SNS \\
+    \texttt{ticketrush-dlq-messages} & \texttt{SQS ApproxMessagesVisible} & $\ge 1$ thông điệp trong DLQ & Gửi email cảnh báo SNS \\
+    \texttt{TicketRush-DLQ-NonEmpty} & \texttt{SQS ApproxMessagesVisible} & $\ge 1$ thông điệp trong DLQ & Giám sát hàng đợi lỗi \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Danh sách các CloudWatch Alarms cấu hình thực tế trên hệ thống TicketRush}
+  \label{tab:alarms}
+\end{table}
+
+\smartfigure{cloudwatch_dashboard.png}{CloudWatch Dashboard \texttt{TicketRush} theo dõi CPU EC2, ALB RequestCount/ResponseTime, HealthyHostCount, RDS DatabaseConnections và SQS}{fig:cw-dashboard}{CloudWatch Dashboard TicketRush.}
+
+\smartfigure{cloudwatch_alarms_sns.png}{Danh sách CloudWatch Alarms (\texttt{AlarmHigh} chuyển \texttt{In alarm}) và email cảnh báo \texttt{ticketrush-http-errors} từ Amazon SNS}{fig:cw-alarms}{CloudWatch Alarms và email SNS.}
+
+\section{Tối ưu hóa kết nối cơ sở dữ liệu giữa tầng Compute và tầng Data}
+Một bài toán thiết kế quan trọng khi kết hợp Auto Scaling Group với Amazon RDS lớp nhỏ (\texttt{db.t3.micro}, 1 GiB RAM) là kiểm soát tổng số kết nối đồng thời (\textit{max\_connections}, mặc định khoảng 63-64 kết nối trên MySQL 8.4). Nếu mỗi worker Backend mở \textit{connection pool} quá lớn, khi ASG mở rộng thêm máy chủ EC2 sẽ dễ chạm trần kết nối của RDS và phát sinh lỗi \textit{Too many connections}.
+
+Nhóm đã chủ động đồng bộ thông số giữa tầng ứng dụng và tầng hạ tầng ngay trong mã nguồn và cấu hình ASG:
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Giới hạn connection pool trong \texttt{backend/app/database.py}:} Thiết lập \texttt{pool\_size=4}, \texttt{max\_overflow=2}, \texttt{pool\_recycle=1800} và \texttt{pool\_pre\_ping=True} (tối đa 6 kết nối/worker Uvicorn).
+  \item \textbf{Đồng bộ giới hạn Auto Scaling Group (\texttt{Min = 2, Desired = 2, Max = 4}):} Ở trạng thái mở rộng tối đa 4 EC2 (8 Uvicorn workers), tổng số kết nối tối đa từ toàn bộ cụm Backend được chặn chặt ở mức:
+  \[
+    4 \text{ EC2} \times 2 \text{ workers/EC2} \times 6 \text{ kết nối/worker} = 48 < 64
+  \]
+  Nhờ đó hệ thống luôn chừa sẵn tối thiểu 15 kết nối dự phòng an toàn cho hàm AWS Lambda và phiên quản trị CSDL.
+  \item \textbf{Tự động đồng bộ bộ đếm Redis trong \texttt{admin\_service.py}:} Mọi thao tác tạo mới, cập nhật hoặc hủy sự kiện trên Admin Dashboard đều tự động cập nhật ngay các khóa tồn kho trên ElastiCache Redis và xóa cache danh sách sự kiện, đảm bảo đồng nhất giữa RAM và RDS mà không cần thao tác nạp tay.
+\end{enumerate}
+
+\section{Thực nghiệm kiểm thử chịu tải, tự động co giãn và tự phục hồi}
+Nhóm thực hiện kiểm thử chịu tải thực tế bằng công cụ \textbf{Locust} (\texttt{scripts/locust\_booking\_test.py}) bắn trực tiếp vào Application Load Balancer (\url{http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com}) với \textbf{600 người dùng ảo đồng thời} (sử dụng pool 40 tài khoản đăng nhập sẵn \texttt{loadtest\_pool\_0..39@test.com}), chạy liên tục khoảng \textbf{20 phút} (từ \texttt{15:58} đến \texttt{16:19} ngày 22/11/2026) và gom toàn bộ lưu lượng đặt vé vào sự kiện mới tạo \textbf{\#22 (\texttt{Load Test 2}, 300 chỗ)}. Các mã phản hồi đúng thiết kế gồm \texttt{201} (đặt vé thành công), \texttt{409} (hết vé) và \texttt{429} (vượt giới hạn tốc độ) được ghi nhận là thành công.
+
+\begin{table}[H]
+  \centering
+  \small
+  \renewcommand{\arraystretch}{1.24}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{5.1cm} >{\raggedright\arraybackslash}p{4.6cm} >{\raggedright\arraybackslash}X}
+    \toprule
+    \textbf{Hạng mục đo đạc} & \textbf{Kết quả thực nghiệm} & \textbf{Nguồn đối chiếu thực tế} \\
+    \midrule
+    Số người dùng ảo (Users) & \textbf{600 users} & Giao diện Locust (\texttt{Charts}) \\
+    Thời gian chạy liên tục & \textbf{$\sim$20 phút} (\texttt{15:58 - 16:19}) & Trục thời gian biểu đồ Locust \\
+    Tổng số yêu cầu (\texttt{\# Requests}) & \textbf{455.250 yêu cầu} & Tab \textit{Statistics} (\texttt{Aggregated}) trên Locust \\
+    Thông lượng xử lý (RPS) & \textbf{289,1 - 291 RPS} & Tab \textit{Statistics} \& biểu đồ \texttt{Charts} Locust \\
+    Độ trễ (\texttt{Median / p95 / p99}) & \textbf{63 ms / 130 ms / 290 ms} & Tab \textit{Statistics} (\texttt{Aggregated}); đọc sự kiện \texttt{56-58 ms} \\
+    Tỉ lệ lỗi tổng (\texttt{\# Fails}) & \textbf{0,41\%} (\texttt{1.866 / 455.250}; \textbf{0 lỗi/s} sau scale-out) & Tab \textit{Statistics} \& biểu đồ \texttt{Failures/s} \\
+    Tự động mở rộng (Auto Scaling) & \textbf{2 $\rightarrow$ 4 EC2} trong \textbf{65 giây} (\texttt{16:06:50 - 16:07:55}) & \texttt{ticketrush-asg} $\rightarrow$ \textit{Activity history} \\
+    Tự phục hồi (Self-Healing) & Tự thay node trượt Health Check trong \textbf{6 giây} (\texttt{16:10:14 - 16:10:19}) & \texttt{ticketrush-asg} $\rightarrow$ \textit{Activity history} \\
+    Đỉnh CPU EC2 (\texttt{CPUUtilization}) & \textbf{38.39\%} ($< 60\%$) & CloudWatch Dashboard \texttt{TicketRush} \\
+    Cảnh báo CloudWatch + SNS & Kích hoạt \texttt{AlarmHigh} và gửi email \texttt{ticketrush-http-errors} & CloudWatch Alarms \& hộp thư SNS (\texttt{16:04}) \\
+    Kiểm chứng 300 vé (sự kiện \#22) & \textbf{300 đơn \texttt{CONFIRMED}}, tổng \textbf{300 vé}, tồn kho \textbf{0} & Admin Dashboard (\texttt{0/300}) \& truy vấn RDS qua SSM \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Tổng hợp kết quả thực nghiệm kiểm thử chịu tải thực tế trên hệ thống TicketRush}
+  \label{tab:loadtest-results}
+\end{table}
+
+\textbf{Phân tích hành vi hệ thống qua biểu đồ thực nghiệm:}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Trước khi mở rộng (\texttt{15:58 - 16:07}, chạy trên 2 EC2):} Hệ thống đạt $\sim 290$ RPS nhưng xuất hiện hai nhịp nghẽn ngắn (\texttt{16:00:30} và \texttt{16:05:30 - 16:07:15}) khiến độ trễ chạm trần 30-60 giây và phát sinh một phần lỗi 5XX (tổng 521 lỗi 5XX trong 1 phút tại mốc \texttt{16:01}, kích hoạt ngay cảnh báo \texttt{ticketrush-http-errors} gửi email qua Amazon SNS lúc \texttt{16:04} như Hình~\ref{fig:cw-alarms}).
+  \item \textbf{Kích hoạt Auto Scaling (\texttt{16:06:50 - 16:07:55}):} Sau khi lưu lượng vượt ngưỡng \texttt{3000} yêu cầu/phút/target trong 3 phút liên tiếp, \texttt{TargetTracking-ticketrush-asg-AlarmHigh} tự động kích hoạt chính sách \texttt{ticketrush-alb-request-tracking}, khởi chạy 2 EC2 mới (\texttt{i-0b7add400449fa36d} và \texttt{i-028b8b0877caeeaf9}) từ Golden AMI và hoàn tất sẵn sàng chỉ trong \textbf{65 giây} (Hình~\ref{fig:asg-activity}). Đáng chú ý, trong toàn bộ quá trình này \texttt{EC2 CPUUtilization} chỉ đạt đỉnh \textbf{38.39\%} (Hình~\ref{fig:cw-dashboard}), chứng minh lựa chọn scale theo \texttt{ALBRequestCountPerTarget} thay vì chỉ theo CPU là chính xác đối với tác vụ web I/O-bound.
+  \item \textbf{Ổn định sau mở rộng (\texttt{16:07:55 - 16:18:30}, chạy trên 4 EC2):} Ngay khi 4 EC2 cùng phục vụ, biểu đồ Locust (Hình~\ref{fig:locust-charts}) trở nên phẳng tuyệt đối trong suốt hơn 10 phút liên tục ở mức \textbf{$\sim 291$ RPS}, đường lỗi màu đỏ giữ phẳng ở \textbf{0 lỗi/giây}. Kết thúc đợt chạy với tổng cộng \textbf{455.250 yêu cầu}, tỉ lệ lỗi tổng chỉ còn \textbf{0,41\%} (1.866 lỗi phát sinh ở giai đoạn đầu trước khi mở rộng); độ trễ tổng hợp đạt \textbf{Median = 63 ms}, \textbf{p95 = 130 ms}, \textbf{p99 = 290 ms} (trong đó \texttt{GET /api/events/} đạt Median \textbf{58 ms} / p95 \textbf{93 ms} và \texttt{GET /api/events/22} đạt Median \textbf{56 ms} / p95 \textbf{89 ms} nhờ Redis Cache-Aside; \texttt{POST /api/bookings/} đạt Median \textbf{65 ms} / p95 \textbf{150 ms}).
+  \item \textbf{Cơ chế tự phục hồi (Self-Healing):} Tại mốc \texttt{16:10:12}, khi một máy chủ (\texttt{i-00c495b73fd39506d}) trượt kiểm tra sức khỏe ELB, ASG lập tức kích hoạt \textit{Connection Draining} để rút kết nối êm ái và tự khởi tạo máy thay thế (\texttt{i-0fb5ed58322ff5c31}) ngay trong \textbf{6 giây} (\texttt{16:10:14 - 16:10:19}), không làm gián đoạn đường RPS trên Locust.
+\end{itemize}
+
+\smartfigure{locust_charts.png}{Biểu đồ kiểm thử tải trên Locust với 600 users: đạt ổn định 291 RPS và 0 lỗi/giây liên tục sau khi ASG mở rộng lên 4 EC2 (từ 16:07:55)}{fig:locust-charts}{Biểu đồ Locust 600 users.}
+
+\smartfigure{asg_activity_scaleout.png}{Nhật ký \textit{Activity history} của \texttt{ticketrush-asg} ghi nhận tự động mở rộng 2 $\rightarrow$ 4 EC2 trong 65 giây và cơ chế tự phục hồi thay thế node lỗi}{fig:asg-activity}{Activity history của ASG.}
+
+\section{Kiểm chứng tính toàn vẹn dữ liệu chống bán vượt số chỗ}
+Sau khi kết thúc đợt kiểm thử tải tập trung vào sự kiện \textbf{\#22 (\texttt{Load Test 2}, 300 chỗ)}, nhóm đối chiếu trực tiếp trên Admin Dashboard (\texttt{0/300}, \texttt{100\% sold}) và kết nối qua \textbf{AWS Systems Manager (Session Manager)} để truy vấn trực tiếp bảng \texttt{events} và \texttt{bookings} trên Amazon RDS MySQL:
+
+\noindent\begin{minipage}{\textwidth}
+\begin{lstlisting}[language=SQL, caption={Truy vấn kiểm chứng tính toàn vẹn tồn kho sự kiện \#22 trên RDS MySQL}]
+SELECT id, total_tickets, available_tickets
+FROM events WHERE id = 22;
+
+SELECT COUNT(*) AS so_don_thanh_cong, SUM(quantity) AS tong_ve_da_ban
+FROM bookings
+WHERE event_id = 22 AND status = 'CONFIRMED';
+\end{lstlisting}
+\end{minipage}
+
+Kết quả truy vấn trả về chính xác \texttt{[(22, 300, 0)]} và \texttt{[(300, Decimal('300'))]} (Hình~\ref{fig:dbeaver-300}), khẳng định tuyệt đối: tổng số vé bán ra đúng bằng \textbf{300 vé}, tồn kho về \textbf{0}, không phát sinh bản ghi âm hay bán vượt số chỗ dưới tải đồng thời 600 người dùng ảo.
+
+\smartfigure{dbeaver_300_tickets.png}{Đối chiếu chống bán vượt số chỗ cho sự kiện \#22 (300 chỗ): Admin Dashboard hiển thị \texttt{0/300 (100\% sold)} và truy vấn trực tiếp RDS MySQL qua SSM Session Manager xác nhận đúng 300 đơn / 300 vé}{fig:dbeaver-300}{Kiểm chứng 300 vé trên Admin và RDS.}

@@ -1,0 +1,149 @@
+\chapter[Cơ sở dữ liệu và lưu trữ]{Thiết kế cơ sở dữ liệu và giải pháp lưu trữ}
+
+\section{Amazon RDS MySQL 8.4 Multi-AZ}
+Cơ sở dữ liệu quan hệ chính của hệ thống được triển khai trên dịch vụ quản trị \textbf{Amazon RDS} với thông số thực tế:
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{DB Instance:} \texttt{ticketrush-mysql}, Engine \textbf{MySQL 8.4.11}, lớp máy chủ \texttt{db.t3.micro} (2 vCPU, 1 GiB RAM, giới hạn $\sim$63-64 kết nối đồng thời).
+  \item \textbf{Endpoint:} \path{ticketrush-mysql.ctimwy80mzsu.ap-southeast-1.rds.amazonaws.com:3306}, tên CSDL \texttt{ticketrush\_db}.
+  \item \textbf{Tính sẵn sàng cao (Multi-AZ):} Bật \textbf{Multi-AZ = True} trên DB Subnet Group gồm \texttt{tr-data-a} và \texttt{tr-data-b}. Bản chính (Primary) đồng bộ dữ liệu theo thời gian thực sang bản dự phòng (Standby) ở AZ còn lại; khi có sự cố phần cứng hoặc bảo trì, AWS tự động chuyển đổi (\textit{Automatic Failover}) trong $\sim 60$ giây mà không mất giao dịch đã commit.
+  \item \textbf{Cô lập và sao lưu:} \textbf{Publicly accessible = No}, chỉ mở cổng \texttt{3306} cho Security Group \texttt{tr-app-sg}; dung lượng 20 GiB \texttt{gp3}; bật sao lưu tự động 7 ngày hỗ trợ khôi phục theo thời điểm (\textit{Point-in-Time Recovery - PITR}).
+\end{itemize}
+
+\subsection{Thiết kế lược đồ 4 bảng và ràng buộc toàn vẹn}
+Lược đồ CSDL (\texttt{database/schema.sql} cùng 6 tệp migration \texttt{001}-\texttt{006}) gồm 4 bảng chính chuẩn hóa có khóa ngoại và ràng buộc mức \texttt{CHECK} nhằm bảo vệ dữ liệu tuyệt đối ngay tại tầng lưu trữ (Hình~\ref{fig:erd}):
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tikzpicture}[
+    tablebox/.style={rectangle, draw=uetblue, thick, rounded corners=3pt, fill=white, font=\sffamily\footnotesize, align=left, inner sep=6pt, minimum width=4.4cm},
+    rel/.style={-{Stealth[length=6pt]}, thick, color=uetblue}
+  ]
+    \node[tablebox] (users) {
+      \textbf{\color{uetblue}users}\\[-4pt]
+      \rule{4.1cm}{0.5pt}\\
+      \textbf{PK} \texttt{id} (INT AI)\\
+      \texttt{email} (VARCHAR 255, UNIQUE)\\
+      \texttt{password\_hash} (VARCHAR 255)\\
+      \texttt{full\_name} (VARCHAR 100)\\
+      \texttt{role} (ENUM: USER, ADMIN)\\
+      \texttt{created\_at, updated\_at}
+    };
+
+    \node[tablebox, right=1.6cm of users] (bookings) {
+      \textbf{\color{uetblue}bookings}\\[-4pt]
+      \rule{4.6cm}{0.5pt}\\
+      \textbf{PK} \texttt{id} (INT AI)\\
+      \texttt{booking\_code} (VARCHAR 40, UQ)\\
+      \textbf{FK} \texttt{user\_id} $\rightarrow$ \texttt{users.id}\\
+      \textbf{FK} \texttt{event\_id} $\rightarrow$ \texttt{events.id}\\
+      \texttt{ticket\_tier} (STANDARD/VIP/VVIP)\\
+      \texttt{quantity} (1..10), \texttt{unit\_price}, \texttt{total\_amount}\\
+      \texttt{status} (PENDING/CONFIRMED/CANCELLED)\\
+      \texttt{expires\_at} (TIMESTAMP NULL)
+    };
+
+    \node[tablebox, right=1.6cm of bookings] (tickets) {
+      \textbf{\color{uetblue}tickets}\\[-4pt]
+      \rule{4.4cm}{0.5pt}\\
+      \textbf{PK} \texttt{id} (INT AI)\\
+      \texttt{ticket\_code} (VARCHAR 50, UQ)\\
+      \textbf{FK} \texttt{booking\_id} $\rightarrow$ \texttt{bookings.id}\\
+      \texttt{ticket\_tier} (STANDARD/VIP/VVIP)\\
+      \texttt{status} (CONFIRMED/CANCELLED/\\
+      \quad PENDING/CHECKED\_IN)\\
+      \texttt{checked\_in\_at} (TIMESTAMP NULL)\\
+      \texttt{qr\_code\_url} (VARCHAR 500)
+    };
+
+    \node[tablebox, below=1.2cm of bookings, minimum width=6.0cm] (events) {
+      \textbf{\color{uetblue}events}\\[-4pt]
+      \rule{5.7cm}{0.5pt}\\
+      \textbf{PK} \texttt{id} (INT AI)\\
+      \texttt{name, description, category, venue, image\_url}\\
+      \texttt{total\_tickets, available\_tickets} (CHECK $\ge 0$)\\
+      \texttt{standard\_tickets, standard\_available} (60\%, 1.0x)\\
+      \texttt{vip\_tickets, vip\_available} (30\%, 1.6x)\\
+      \texttt{vvip\_tickets, vvip\_available} (10\%, 2.2x)\\
+      \texttt{price, currency, event\_date, status} (ACTIVE/CANCELLED)
+    };
+
+    \draw[rel] (bookings.west) -- node[above, font=\scriptsize]{N : 1} (users.east);
+    \draw[rel] (bookings.south) -- node[right, font=\scriptsize]{N : 1} (events.north);
+    \draw[rel] (tickets.west) -- node[above, font=\scriptsize]{N : 1} (bookings.east);
+  \end{tikzpicture}
+  }%
+  \caption{Lược đồ thực thể liên kết (ERD) 4 bảng trong cơ sở dữ liệu \texttt{ticketrush\_db}}
+  \label{fig:erd}
+\end{figure}
+
+Quá trình phát triển CSDL được quản lý tuần tự bằng 6 tệp SQL migration:
+\begin{itemize}[leftmargin=1.5em]
+  \item \texttt{001\_create\_bookings.sql} \& \texttt{002\_update\_tickets.sql}: Tạo bảng đơn đặt vé, vé chi tiết và các ràng buộc khóa ngoại.
+  \item \texttt{003\_add\_event\_status.sql}: Bổ sung trạng thái \texttt{ACTIVE}/\texttt{CANCELLED} cho sự kiện.
+  \item \texttt{004\_add\_ticket\_tiers.sql}: Phân hạng vé 3 tầng (\texttt{STANDARD} 60\%, \texttt{VIP} 30\%, \texttt{VVIP} 10\%) kèm ràng buộc \texttt{CHECK} không âm trên từng hạng.
+  \item \path{005_add_booking_pending_and_expires_at.sql}: Hỗ trợ trạng thái \texttt{PENDING} và cột \texttt{expires\_at} cho cơ chế giữ chỗ tạm thời TTL 10 phút.
+  \item \path{006_add_ticket_checkin.sql}: Hỗ trợ trạng thái \texttt{CHECKED\_IN} và thời điểm \texttt{checked\_in\_at} cho chức năng soát vé QR tại cổng.
+\end{itemize}
+
+\smartfigure{rds_multiaz.png}{Thông số Amazon RDS MySQL 8.4 Multi-AZ (\texttt{ticketrush-mysql}) đặt trong Private Data Subnets}{fig:rds-multiaz}{Chụp màn hình \textit{RDS $\rightarrow$ Databases $\rightarrow$ ticketrush-mysql} (thể hiện rõ Multi-AZ = Yes, Publicly accessible = No), lưu tại \texttt{report/images/rds\_multiaz.png}.}
+
+\section{Amazon ElastiCache Redis 7.1 (Bật mã hóa TLS)}
+Nhóm triển khai cụm \textbf{ElastiCache Redis} (\texttt{ticketrush-redis-001}, engine \textbf{Redis 7.1.0}, lớp \texttt{cache.t3.micro}, \textit{Cluster mode disabled}, đặt trong \texttt{tr-data-a/b} với \texttt{TransitEncryptionEnabled = true} yêu cầu kết nối \texttt{REDIS\_SSL=true}). Redis đảm nhận đồng thời \textbf{3 nhiệm vụ trọng yếu}:
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{4.6cm} >{\raggedright\arraybackslash}X}
+    \toprule
+    \textbf{Chức năng} & \textbf{Cấu trúc khóa (Key Pattern)} & \textbf{Cơ chế hoạt động \& Vai trò} \\
+    \midrule
+    1. Bộ đếm \& Giữ chỗ nguyên tử (TTL) &
+      \path{event:{id}:tier:{T}:available} \newline
+      \path{booking:hold:{booking_id}} &
+      Trừ vé nguyên tử bằng \texttt{DECRBY} trên RAM (hoàn lại \texttt{INCRBY} nếu âm); lưu khóa giữ chỗ kèm TTL 600 giây. Tự đồng bộ khi Admin tạo/sửa/hủy sự kiện. \\
+    \midrule
+    2. Cache-Aside cho danh sách sự kiện &
+      \texttt{events:list} (TTL 60s) \newline
+      \texttt{events:\{id\}} (TTL 120s) &
+      Phục vụ \texttt{GET /api/events/} trực tiếp từ RAM, giảm đáng kể truy vấn đọc lặp lại xuống RDS. Tự động xóa cache (\textit{invalidation}) ngay khi tồn kho hoặc thông tin sự kiện thay đổi. \\
+    \midrule
+    3. Rate Limiting chống spam đặt vé &
+      \path{rate:booking:user:{uid}} \newline
+      \path{rate:booking:ip:{ip}} &
+      Đếm cửa sổ cố định bằng \texttt{INCR} + \texttt{EXPIRE} (mặc định 10 yêu cầu / 60 giây). Vượt ngưỡng lập tức trả \texttt{HTTP 429 Too Many Requests} kèm header \texttt{Retry-After}. Áp dụng fail-open nếu Redis gián đoạn. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Ba vai trò cốt lõi của Amazon ElastiCache Redis trong kiến trúc TicketRush}
+  \label{tab:redis-roles}
+\end{table}
+
+\section{Giải pháp lưu trữ đa loại: Object Storage (S3), Block Storage (EBS) và NoSQL (DynamoDB)}
+Hệ thống đáp ứng vượt yêu cầu hạng mục \#3 (sử dụng $\ge 2$ loại lưu trữ khác nhau) bằng việc phối hợp ba loại lưu trữ chuyên biệt theo đặc tính truy xuất:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Object Storage - Amazon S3 (2 Bucket tách biệt mục đích):}
+    \begin{itemize}[leftmargin=1.2em]
+      \item \texttt{ticketrush-web}: Lưu trữ mã nguồn tĩnh Frontend (\texttt{index.html}, \texttt{admin.html}, CSS/JS). Bật chặn truy cập công khai và chỉ cho phép CloudFront \texttt{E3K3I9C6DRVNO7} đọc qua \textbf{OAC}.
+      \item \texttt{ticketrush-assets-hieu}: Lưu trữ hai phân vùng với mức độ bảo mật khác nhau:
+        \begin{itemize}[leftmargin=1.2em]
+          \item \texttt{qr-codes/<ticket\_code>.png}: Mã QR vé riêng tư của khách hàng, mã hóa phía máy chủ \textbf{SSE-S3 (AES-256)}, hoàn toàn riêng tư - chỉ được truy xuất tạm thời qua \textbf{Pre-signed URL} (hết hạn sau 24 giờ) do Lambda sinh ra.
+          \item \path{posters/<uuid>.<ext>}: Ảnh bìa sự kiện do Admin tải lên, được mở quyền đọc công khai giới hạn duy nhất trên tài nguyên \path{arn:aws:s3:::ticketrush-assets-hieu/posters/*} thông qua Bucket Policy \texttt{PublicReadEventPostersOnly}.
+        \end{itemize}
+    \end{itemize}
+  \item \textbf{Block Storage - Amazon EBS \texttt{gp3}:}
+    Mỗi máy chủ EC2 \texttt{t3.small} gắn trực tiếp 1 ổ đĩa khối \textbf{EBS \texttt{gp3} dung lượng 20 GiB} (3.000 IOPS cơ sở, độ trễ thấp) để cài đặt hệ điều hành Ubuntu Server LTS, Docker Engine, image ứng dụng và tệp log cục bộ. Do đặc thù Auto Scaling có thể hủy instance bất kỳ lúc nào, nhóm \textbf{tuyệt đối không lưu dữ liệu nghiệp vụ hay ảnh người dùng trên EBS} (thiết kế \textit{Stateless Backend}).
+  \item \textbf{NoSQL Key-Value - Amazon DynamoDB:}
+    Bảng \texttt{ticketrush-ticket-idempotency} (chế độ \texttt{PAY\_PER\_REQUEST}, khóa phân vùng \texttt{idempotency\_key}, bật \textbf{TTL 24 giờ}) được AWS Lambda dùng với lệnh ghi có điều kiện \texttt{attribute\_not\_exists(idempotency\_key)} để đảm bảo xử lý chống gửi trùng email (\textit{exactly-once}) ngay cả khi SQS gửi lặp thông điệp.
+\end{enumerate}
+
+\smartfigure{redis_s3.png}{Cấu hình ElastiCache Redis 7.1 TLS và các bucket S3 phân tách vai trò}{fig:redis-s3}{Chụp màn hình \textit{ElastiCache $\rightarrow$ ticketrush-redis-001-001} và danh sách S3 Buckets (\texttt{ticketrush-web}, \texttt{ticketrush-assets-hieu}), lưu tại \texttt{report/images/redis\_s3.png}.}
+
+\begin{clo2box}{Tầng Cơ sở dữ liệu và Lưu trữ}
+  \begin{itemize}[leftmargin=1.3em]
+    \item \textbf{Tại sao dùng Amazon RDS Multi-AZ thay vì tự cài MySQL trên EC2?} Tự cài MySQL trên EC2 đòi hỏi nhóm phải tự quản trị sao lưu, vá lỗi, thiết lập replication và tự xử lý failover khi máy chủ hỏng. RDS cung cấp sẵn Multi-AZ đồng bộ, backup tự động 7 ngày (PITR) và tích hợp trực tiếp Secrets Manager.
+    \item \textbf{Tại sao kết hợp cả Redis lẫn MySQL, và tại sao Redis chọn 0 replica còn RDS chọn Multi-AZ?} Dữ liệu đơn hàng trong MySQL là nguồn chân lý (\textit{Source of Truth}) đòi hỏi chuẩn ACID và không được phép mất, nên bắt buộc dùng Multi-AZ. Ngược lại, Redis chỉ giữ bộ đếm tốc độ cao trên RAM và dữ liệu cache có TTL ngắn; nếu nút Redis gặp sự cố, hệ thống vẫn hoạt động an toàn nhờ cơ chế fail-open/fallback về RDS và có thể khôi phục bộ đếm tức thì qua \texttt{scripts/init\_redis\_counters.py}. Dùng 1 nút \texttt{cache.t3.micro} giúp tiết kiệm 50\% chi phí Redis ($\sim\$15$/tháng).
+    \item \textbf{Tại sao tách S3 (Object) và EBS (Block)?} EBS gắn liền vòng đời của từng EC2 nên phù hợp hệ điều hành và container; S3 tách biệt khỏi vòng đời máy chủ, có độ bền 99.999999999\% (11 số 9), chi phí lưu trữ cực thấp (\$0.025/GB) và cho phép cả EC2 lẫn Lambda truy xuất chung tệp QR/poster.
+  \end{itemize}
+\end{clo2box}

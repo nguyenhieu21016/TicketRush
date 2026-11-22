@@ -1,180 +1,154 @@
-# 🎟️ TicketRush
+# TicketRush — Hệ Thống Đặt Vé Sự Kiện Chịu Tải Đột Biến Trên AWS
 
-**TicketRush** là hệ thống bán vé sự kiện trực tuyến (Event Ticketing System) được thiết kế hiện đại, hướng tới kiến trúc xử lý tải cao (high concurrency) và trải nghiệm người dùng mượt mà.
+**TicketRush** là hệ thống đăng ký và đặt vé sự kiện trực tuyến được thiết kế theo kiến trúc **3 tầng (3-Tier Architecture)** kết hợp **xử lý bất đồng bộ hướng sự kiện (Event-Driven Serverless)** trên **Amazon Web Services (AWS — `ap-southeast-1`)**, đáp ứng bài toán lưu lượng đột biến (*flash-sale / spiky traffic*), tự động co giãn và đảm bảo tuyệt đối **không bán vượt số chỗ (anti-overselling)**.
 
----
-
-## 📑 Mục lục
-- [Kiến trúc & Công nghệ](#-kiến-trúc--công-nghệ)
-- [Cấu trúc dự án](#-cấu-trúc-dự-án)
-- [Yêu cầu hệ thống](#-yêu-cầu-hệ-thống)
-- [Hướng dẫn cài đặt & Khởi chạy](#-hướng-dẫn-cài-đặt--khởi-chạy)
-  - [Bước 1: Clone mã nguồn](#bước-1-clone-mã-nguồn)
-  - [Bước 2: Khởi động cơ sở dữ liệu (MySQL qua Docker)](#bước-2-khởi-động-cơ-sở-dữ-liệu-mysql-qua-docker)
-  - [Bước 3: Cài đặt và khởi chạy Backend (FastAPI)](#bước-3-cài-đặt-và-khởi-chạy-backend-fastapi)
-  - [Bước 4: Khởi chạy Frontend](#bước-4-khởi-chạy-frontend)
-- [Tài liệu API (Swagger UI)](#-tài-liệu-api-swagger-ui)
-- [Xử lý sự cố thường gặp (Troubleshooting)](#-xử-lý-sự-cố-thường-gặp-troubleshooting)
+- **Hệ thống triển khai (HTTPS / CloudFront):** https://d3m6e24vu2nkwf.cloudfront.net
+- **Trang quản trị (Admin Dashboard):** https://d3m6e24vu2nkwf.cloudfront.net/admin.html
+- **Học phần:** INT 3319 3 — Điện toán đám mây (Trường Đại học Công nghệ – ĐHQGHN)
+- **Giảng viên hướng dẫn:** Trần Trúc Mai, Nguyễn Xuân Trường
 
 ---
 
-## 🛠 Kiến trúc & Công nghệ
+## Thành viên thực hiện
 
-- **Frontend**: HTML5, CSS3 hiện đại, Vanilla JavaScript (ES6+), thiết kế Responsive, tích hợp Modal đặt vé và thông báo Toast.
-- **Backend**: [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+), SQLAlchemy ORM, Pydantic, PyMySQL, Uvicorn.
-- **Database**: MySQL 8.0 chạy trên [Docker Compose](file:///home/gotever/Projects/TicketRush/docker-compose.yml), hỗ trợ charset `utf8mb4`.
-- **Hạ tầng mở rộng (Định hướng)**: AWS SES (gửi email vé), AWS S3 (lưu trữ mã QR), Locust (kiểm thử chịu tải).
-
----
-
-## 📋 Yêu cầu hệ thống
-
-Trước khi bắt đầu, hãy đảm bảo máy tính của bạn đã cài đặt các công cụ sau:
-
-- [Git](https://git-scm.com/)
-- [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
-- [Python](https://www.python.org/) 3.10 trở lên & `pip`
-- Trình duyệt web hiện đại (Chrome, Edge, Firefox, Brave,...)
-- Tiện ích mở rộng **Live Server** trên VS Code (hoặc Python `http.server`)
+| STT | Họ và tên | MSSV | Mảng phụ trách chính |
+| :---: | :--- | :---: | :--- |
+| 1 | Phan Huy Anh | `24020024` | Launch Template, Golden AMI, Auto Scaling Group, CloudWatch Dashboard & Alarms, SNS |
+| 2 | Nguyễn Tất Bình | `24020042` | VPC 2 AZ, Subnets, Route Tables, NAT/IGW, Security Groups, ALB, IAM Roles, Secrets Manager |
+| 3 | Trần Đức Hoàng | `24020141` | Backend FastAPI, SQS + DLQ, AWS Lambda, DynamoDB Idempotency, SMTP/SES, Locust, AWS Pricing |
+| 4 | Nguyễn Văn Hiếu | `24021478` | RDS MySQL 8.4 Multi-AZ, ElastiCache Redis 7.1 TLS, S3, EBS, CloudFront OAC, Admin Dashboard, Báo cáo |
 
 ---
 
-## 🚀 Hướng dẫn cài đặt & Khởi chạy
+## Kiến trúc tổng thể trên AWS
 
-### Bước 1: Clone mã nguồn
+```mermaid
+flowchart LR
+    User["Người dùng<br/>(Browser / Locust)"] -->|HTTPS| CF["CloudFront CDN<br/>E3K3I9C6DRVNO7<br/>(HTTPS + OAC)"]
+    CF -->|OAC| S3Web["S3 Frontend<br/>ticketrush-web<br/>(Private)"]
+    CF -->|/api/*| ALB["Application Load Balancer<br/>ticketrush-alb<br/>(Public 1a/1b)"]
 
-```bash
-git clone https://github.com/nguyenhieu21016/TicketRush.git
-cd TicketRush
+    subgraph VPC["VPC ticketrush-vpc (10.0.0.0/16 — ap-southeast-1)"]
+        ALB --> EC2A["EC2 AZ 1a (ASG)<br/>t3.small · FastAPI :8000"]
+        ALB --> EC2B["EC2 AZ 1b (ASG)<br/>t3.small · FastAPI :8000"]
+        EC2A & EC2B -->|:3306| RDS[("RDS MySQL 8.4<br/>Multi-AZ · db.t3.micro")]
+        EC2A & EC2B -->|:6379 TLS| Redis[("ElastiCache Redis 7.1<br/>TLS · cache.t3.micro")]
+    end
+
+    EC2A -.->|Push Job| SQS["Amazon SQS + DLQ<br/>ticketrush-ticket-generation"]
+    SQS -->|Trigger| Lambda["AWS Lambda<br/>ticketrush-ticket-generator<br/>(Python 3.11 · 512MB)"]
+    Lambda --> DDB[("DynamoDB<br/>ticketrush-ticket-idempotency")]
+    Lambda --> S3QR["S3 Assets (AES-256)<br/>ticketrush-assets-hieu"]
+    Lambda --> Mail["Gmail SMTP / SES<br/>Gửi vé QR"]
+    CW["CloudWatch Dashboard<br/>& 7 Alarms + SNS"] -.-> VPC
+```
+
+### Hạ tầng AWS đã triển khai thực tế (`ap-southeast-1`)
+
+| Tầng | Dịch vụ AWS | Cấu hình thực tế |
+| :--- | :--- | :--- |
+| **Mạng riêng** | Amazon VPC | `ticketrush-vpc` (`10.0.0.0/16`), 6 Subnets (2 Public, 2 Private App, 2 Private Data) trên 2 AZ (`1a/1b`), IGW, NAT Gateway, Security Group Chaining (`tr-alb-sg` → `tr-app-sg` → `tr-data-sg`) |
+| **Biên & Cân bằng tải** | CloudFront + ALB | CloudFront `E3K3I9C6DRVNO7` (`*` → S3 OAC, `/api/*` → ALB); ALB `ticketrush-alb` chuyển tiếp `:80` → `:8000`, Health Check `GET /health` |
+| **Tầng ứng dụng** | EC2 + Auto Scaling | ASG `ticketrush-asg` (`Min 2 / Max 4`, `t3.small`, Private Subnet không Public IP), Golden AMI, Target Tracking `ALBRequestCountPerTarget = 3000` (warmup `60s`) |
+| **Cơ sở dữ liệu** | RDS + ElastiCache | RDS MySQL `8.4.11` (`db.t3.micro`, **Multi-AZ = Yes**, Private, `20 GiB gp3`, backup 7 ngày); Redis `7.1.0` (`cache.t3.micro`, **TLS + At-Rest**) |
+| **Lưu trữ đa loại** | S3 + EBS + DynamoDB | S3 (`ticketrush-web`, `ticketrush-assets-hieu` SSE-S3 AES-256), EBS `gp3` `20 GiB` (3.000 IOPS), DynamoDB `ticketrush-ticket-idempotency` (`PAY_PER_REQUEST`, TTL 24h) |
+| **Bất đồng bộ** | SQS + DLQ + Lambda | SQS `ticketrush-ticket-generation` + DLQ (`maxReceiveCount = 3`), Lambda `ticketrush-ticket-generator` (`Python 3.11`, `512 MB`, `60s`) |
+| **Bảo mật & Giám sát** | IAM + Secrets + CW | IAM Roles (`ticketrush-ec2-role`, `ticketrush-lambda-execution-role`), AWS Secrets Manager, CloudWatch Dashboard `TicketRush`, 7 Alarms + Amazon SNS |
+
+---
+
+## Tính năng nổi bật
+
+- **Phòng vệ 3 lớp chống bán vượt số chỗ:**
+  1. Trừ ghế nguyên tử trên RAM ElastiCache Redis (`DECRBY`) kèm khóa giữ chỗ tạm thời **TTL 10 phút** (`booking:hold:{id}`).
+  2. Cập nhật nguyên tử mức hàng trên RDS MySQL (`UPDATE events ... WHERE available_tickets >= :qty`).
+  3. Ràng buộc toàn vẹn `CHECK (available_tickets >= 0)` ngay mức cơ sở dữ liệu.
+- **Tối ưu hiệu năng & đồng bộ kết nối:**
+  - Redis **Cache-Aside** cho danh sách/chi tiết sự kiện (tự động *invalidation* khi tồn kho đổi).
+  - Redis **Rate Limiting** chống spam đặt vé (`10 req / 60s`, trả `HTTP 429`).
+  - Giới hạn SQLAlchemy pool (`pool_size=4, max_overflow=2`) đảm bảo ở đỉnh 4 EC2 (8 workers) tổng kết nối đạt tối đa `48 < 64` trần của `db.t3.micro`.
+- **Pipeline phát hành vé bất đồng bộ:** SQS + DLQ + DynamoDB Idempotency (`exactly-once`) + AWS Lambda sinh ảnh mã QR lưu S3 (`AES-256`), ký Pre-signed URL 24h và gửi email kèm ảnh QR đính kèm.
+- **Admin Dashboard hoàn chỉnh:** CRUD sự kiện (tự đồng bộ bộ đếm Redis), tải ảnh poster trực tiếp lên S3 (`posters/*`), lọc đơn hàng, xuất CSV (UTF-8 BOM), gửi lại email vé và **Check-in mã QR tại cổng** (chặn quét trùng `409 Conflict`).
+
+---
+
+## Kết quả kiểm thử chịu tải thực tế (Locust — 600 Users)
+
+Kiểm thử chạy liên tục ~20 phút với **600 người dùng ảo đồng thời** gom tải vào sự kiện `#22` (300 chỗ):
+
+| Chỉ số | Kết quả thực nghiệm |
+| :--- | :--- |
+| **Tổng số yêu cầu** | **455.250 requests** |
+| **Thông lượng ổn định** | **289,1 – 291 RPS** |
+| **Độ trễ (Aggregated)** | **Median 63 ms** · **p95 130 ms** · **p99 290 ms** *(đọc sự kiện `56–58 ms`)* |
+| **Tỉ lệ lỗi tổng** | **0,41%** *(**0 lỗi/giây** liên tục >10 phút sau khi mở rộng lên 4 EC2)* |
+| **Auto Scaling & Self-Healing** | Tự mở rộng **2 → 4 EC2 trong 65 giây** (`EC2 CPU` đỉnh chỉ `38,39%`); tự thay node trượt Health Check trong **6 giây** |
+| **Kiểm chứng chống bán lố** | RDS MySQL xác nhận đúng **300 đơn `CONFIRMED` / 300 vé đã bán / tồn kho 0** |
+
+---
+
+## Cấu trúc thư mục
+
+```text
+TicketRush/
+├── backend/                 # Ứng dụng Backend FastAPI (Python 3.12, SQLAlchemy, Redis, SQS, S3)
+├── frontend/                # Giao diện người dùng (index.html) & Admin Dashboard (admin.html)
+├── database/                # schema.sql và 6 tệp SQL migrations (001 -> 006)
+├── lambda/                  # AWS Lambda ticket_generator.py (QR, S3 AES-256, DynamoDB, SMTP/SES)
+├── infra/                   # Mẫu CloudFormation IaC (cloudfront.yaml, elasticache.yaml, sqs_dlq.yaml)
+├── scripts/                 # init_redis_counters.py & locust_booking_test.py
+├── report/                  # Báo cáo LaTeX (main.pdf) & Slide thuyết trình Beamer (slides.pdf)
+├── docker-compose.yml       # Môi trường phát triển cục bộ (MySQL + Redis)
+└── docker-compose.prod.yml  # Cấu hình chạy container Backend trên EC2 Production
 ```
 
 ---
 
-### Bước 2: Khởi động cơ sở dữ liệu (MySQL qua Docker)
+## Chạy ứng dụng cục bộ (Local Development)
 
-Dự án đã chuẩn bị sẵn file [docker-compose.yml](file:///home/gotever/Projects/TicketRush/docker-compose.yml) giúp tự động tạo database `ticketrush_db` và nạp dữ liệu sự kiện mẫu từ file [database/schema.sql](file:///home/gotever/Projects/TicketRush/database/schema.sql).
+### Yêu cầu
+- Docker & Docker Compose
+- Python 3.10+
 
-Chạy lệnh sau tại thư mục gốc của dự án:
+### Các bước khởi chạy
 
-```bash
-docker compose up -d
-```
-
-> [!TIP]
-> Kiểm tra trạng thái container:
-> ```bash
-> docker ps
-> ```
-> Container `ticketrush-mysql` sẽ hoạt động ở cổng `3306`.
-
----
-
-### Bước 3: Cài đặt và khởi chạy Backend (FastAPI)
-
-1. **Tạo và kích hoạt môi trường ảo (Virtual Environment):**
-
-   - **Trên Linux/macOS:**
-     ```bash
-     python3 -m venv .venv
-     source .venv/bin/activate
-     ```
-   - **Trên Windows (cmd/PowerShell):**
-     ```powershell
-     python -m venv .venv
-     .venv\Scripts\activate
-     ```
-
-2. **Cài đặt các thư viện cần thiết:**
-
+1. **Clone mã nguồn và khởi động MySQL + Redis bằng Docker:**
    ```bash
+   git clone https://github.com/nguyenhieu21016/TicketRush.git
+   cd TicketRush
+   docker compose up -d
+   ```
+
+2. **Cài đặt và chạy Backend FastAPI:**
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate        # Windows: .venv\Scripts\activate
    pip install -r backend/requirements.txt
-   ```
-
-3. **Cấu hình biến môi trường (`.env`):**
-
-   Sao chép file [backend/.env.example](file:///home/gotever/Projects/TicketRush/backend/.env.example) thành `backend/.env`:
-   ```bash
    cp backend/.env.example backend/.env
-   ```
-
-   Nội dung mặc định kết nối với MySQL trong Docker:
-   ```env
-   DB_USER=root
-   DB_PASSWORD=local_root_password
-   DB_HOST=localhost
-   DB_PORT=3306
-   DB_NAME=ticketrush_db
-   ```
-
-4. **Khởi chạy máy chủ Backend:**
-
-   ```bash
    cd backend
    uvicorn app.main:app --reload --port 8000
    ```
+   Tài liệu API tự động: `http://127.0.0.1:8000/docs`
 
-   Backend sẽ khởi động tại: `http://localhost:8000`
+3. **Khởi chạy Frontend:**
+   ```bash
+   python3 -m http.server 5500 --directory frontend
+   ```
+   Truy cập `http://127.0.0.1:5500` (giao diện người dùng) và `http://127.0.0.1:5500/admin.html` (Admin Dashboard).
 
 ---
 
-### Bước 4: Khởi chạy Frontend
+## Chạy kiểm thử chịu tải (Locust)
 
-Backend đã được cấu hình CORS cho phép các kết nối từ `http://localhost:5500` và `http://127.0.0.1:5500`.
-
-Bạn có thể chạy Frontend bằng một trong hai cách:
-
-#### Cách 1: Sử dụng VS Code Live Server (Khuyên dùng)
-1. Mở thư mục dự án trên VS Code.
-2. Chuột phải vào file [frontend/index.html](file:///home/gotever/Projects/TicketRush/frontend/index.html).
-3. Chọn **"Open with Live Server"**.
-4. Trình duyệt sẽ tự động mở trang web tại địa chỉ `http://127.0.0.1:5500` hoặc `http://localhost:5500`.
-
-#### Cách 2: Sử dụng Python HTTP Server
-Mở một terminal mới và chạy:
 ```bash
-python -m http.server 5500 --directory frontend
-```
-Sau đó truy cập: [http://localhost:5500](http://localhost:5500)
-
----
-
-## 📖 Tài liệu API (Swagger UI)
-
-FastAPI hỗ trợ tài liệu API tương tác tự động. Khi backend đang chạy, bạn có thể truy cập:
-
-- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-
-### Các API chính hiện tại:
-- `GET /api/events/`: Lấy danh sách sự kiện sắp diễn ra kèm tổng số lượng.
-- `GET /api/events/{event_id}`: Lấy chi tiết thông tin sự kiện theo ID.
-- `POST /api/bookings/`: Đặt vé cho tài khoản đang đăng nhập.
-- `GET /api/bookings/me`: Lấy danh sách đơn và mã vé của tài khoản đang đăng nhập (yêu cầu xác thực).
-
----
-
-## 🛠 Xử lý sự cố thường gặp (Troubleshooting)
-
-### 1. Lỗi `ERROR: [Errno 98] Address already in use` (Cổng 8000 đã bị chiếm)
-Khi khởi động `uvicorn`, nếu cổng `8000` đang có một tiến trình khác chạy ngầm:
-- **Linux/macOS:**
-  ```bash
-  fuser -k 8000/tcp
-  ```
-- **Windows:**
-  ```powershell
-  netstat -ano | findstr :8000
-  taskkill /PID <PID_NUMBER> /F
-  ```
-
-### 2. Muốn reset lại dữ liệu MySQL về ban đầu
-Để xóa toàn bộ dữ liệu và chạy lại script [schema.sql](file:///home/gotever/Projects/TicketRush/database/schema.sql):
-```bash
-docker compose down -v
-docker compose up -d
+pip install locust requests
+TARGET_EVENT_ID=<ID> locust -f scripts/locust_booking_test.py \
+  --host http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com
 ```
 
-### 3. Frontend không tải được dữ liệu sự kiện
-- Đảm bảo Backend đang chạy tại `http://localhost:8000`.
-- Kiểm tra xem Frontend có đang được mở đúng cổng `5500` (được cấu hình trong [backend/app/main.py](file:///home/gotever/Projects/TicketRush/backend/app/main.py)) hay không.
-- Mở DevTools (`F12`) trên trình duyệt và kiểm tra tab **Console** và **Network**.
+---
+
+## Báo cáo & Slide thuyết trình
+
+- **Báo cáo kỹ thuật (PDF & LaTeX):** [report/main.pdf](report/main.pdf) · [report/main.tex](report/main.tex)
+- **Slide thuyết trình (PDF & Beamer):** [report/slides.pdf](report/slides.pdf) · [report/slides.tex](report/slides.tex)

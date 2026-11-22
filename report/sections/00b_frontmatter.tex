@@ -1,0 +1,99 @@
+% ---- Tóm tắt báo cáo ----
+\chapter*{Tóm tắt}
+\addcontentsline{toc}{chapter}{Tóm tắt}
+
+Trong các sự kiện có số lượng vé giới hạn như hội thảo, hòa nhạc hay giải đấu thể thao, lưu lượng truy cập thường tăng đột biến gấp hàng trăm lần trong vài phút đầu mở bán rồi giảm về mức rất thấp ngoài giờ cao điểm. Nếu triển khai ứng dụng trên một máy chủ đơn lẻ truyền thống, hệ thống rất dễ bị quá tải, phát sinh lỗi tranh chấp dữ liệu gây bán vượt số chỗ (\textit{overselling}), đồng thời lãng phí tài nguyên khi duy trì cấu hình lớn 24/7.
+
+Báo cáo này trình bày quá trình thiết kế, triển khai và kiểm thử thực tế hệ thống \textbf{TicketRush} trên nền tảng \textbf{Amazon Web Services (AWS)} tại vùng \texttt{ap-southeast-1} (Singapore). Hệ thống được xây dựng theo kiến trúc 3 tầng trải trên 2 vùng sẵn sàng (\textit{Availability Zones}) trong mạng riêng \texttt{ticketrush-vpc}: tầng biên sử dụng \textbf{CloudFront CDN + Origin Access Control (OAC)} phân phối giao diện tĩnh từ S3 qua HTTPS và định tuyến ngược \texttt{/api/*} về \textbf{Application Load Balancer}; tầng ứng dụng gồm các máy chủ \textbf{EC2 \texttt{t3.small}} chạy container FastAPI trong Private Subnet được điều phối bởi \textbf{Auto Scaling Group} theo chính sách \texttt{ALBRequestCountPerTarget}; tầng dữ liệu cô lập trong Private Data Subnets gồm \textbf{RDS MySQL 8.4 Multi-AZ} và \textbf{ElastiCache Redis 7.1 TLS}. Các tác vụ nặng (tạo ảnh mã QR, tải lên S3 mã hóa AES-256 và gửi email) được tách ra xử lý bất đồng bộ qua \textbf{SQS + DLQ + AWS Lambda + DynamoDB Idempotency}.
+
+Kiến trúc hệ thống áp dụng chiến lược phòng vệ 3 lớp chống bán vượt số chỗ (bộ đếm nguyên tử \texttt{DECRBY} và giữ chỗ TTL 10 phút trên Redis, câu lệnh cập nhật nguyên tử mức hàng trên RDS MySQL và ràng buộc \texttt{CHECK} mức cơ sở dữ liệu), kết hợp tối ưu kích thước \textit{connection pool} của SQLAlchemy phù hợp giới hạn kết nối của RDS \texttt{db.t3.micro}. Kết quả thực nghiệm kiểm thử chịu tải bằng \textbf{Locust} với \textbf{600 người dùng ảo đồng thời} (tổng cộng \textbf{455.250 yêu cầu}) xác nhận hệ thống đạt ổn định \textbf{289-291 RPS}, độ trễ trung vị \textbf{63 ms} (\textbf{p95 = 130 ms}), tỉ lệ lỗi tổng chỉ \textbf{0,41\%}, tự động mở rộng từ \textbf{2 lên 4 máy chủ EC2 trong 65 giây}, tự phục hồi node trượt Health Check, kích hoạt cảnh báo CloudWatch/SNS qua email và bán chính xác \textbf{300/300 vé} không vượt số chỗ.
+
+\clearpage
+
+% ---- Phân công công việc ----
+\chapter*{Phân công công việc}
+\addcontentsline{toc}{chapter}{Phân công công việc}
+
+Dự án được thực hiện bởi nhóm 4 sinh viên với sự phân chia mảng hạ tầng và ứng dụng rõ ràng, đảm bảo mọi thành viên đều trực tiếp triển khai trên AWS và nắm vững kiến trúc tổng thể:
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \renewcommand{\arraystretch}{1.18}
+  \begin{tabularx}{\textwidth}{>{\bfseries\raggedright\arraybackslash}p{2.7cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.9cm}}
+    \toprule
+    Thành viên & Mảng phụ trách & Sản phẩm bàn giao thực tế \\
+    \midrule
+    Nguyễn Tất Bình \newline (24020042) &
+      Thiết kế và triển khai mạng riêng VPC (\texttt{ticketrush-vpc}), 6 subnet trên 2 AZ, Internet Gateway, NAT Gateway, Route Tables, Security Groups phân tầng (\texttt{tr-alb-sg}, \texttt{tr-app-sg}, \texttt{tr-data-sg}), Application Load Balancer (\texttt{ticketrush-alb}), IAM Roles (\texttt{ticketrush-ec2-role}, \texttt{ticketrush-lambda-execution-role}), Secrets Manager. &
+      Hạ tầng mạng 3 tầng hoạt động ổn định, chính sách IAM quyền tối thiểu, cấu hình bảo mật tầng mạng \& định danh. \\
+    \midrule
+    Phan Huy Anh \newline (24020024) &
+      Xây dựng Launch Template (\texttt{ticketrush-lt}), quản lý AMI, Auto Scaling Group (\texttt{ticketrush-asg}), thiết lập chính sách Target Tracking theo \texttt{ALBRequestCountPerTarget}, CloudWatch Dashboard (\texttt{TicketRush}), bộ 7 CloudWatch Alarms và SNS Topic cảnh báo email. &
+      Cụm ASG cấu hình tự động co giãn (Min 2 / Max 4), Dashboard giám sát đa tầng, hệ thống cảnh báo CloudWatch + SNS. \\
+    \midrule
+    Nguyễn Văn Hiếu \newline (24021478) &
+      Triển khai Amazon RDS MySQL 8.4 Multi-AZ (\texttt{ticketrush-mysql}), ElastiCache Redis 7.1 TLS (\texttt{ticketrush-redis-001}), S3 lưu trữ mã hóa (\texttt{ticketrush-assets-hieu}, \texttt{ticketrush-web}), CloudFront CDN + OAC (\texttt{E3K3I9C6DRVNO7}), EBS \texttt{gp3}, thiết kế lược đồ 4 bảng \& 6 file migration, đồng bộ Redis, Admin Dashboard, kết nối DBeaver qua SSH Tunnel. &
+      Tầng dữ liệu \& lưu trữ chạy thực tế, lược đồ CSDL đầy đủ ràng buộc toàn vẹn, tài liệu vận hành trên AWS, báo cáo kỹ thuật. \\
+    \midrule
+    Trần Đức Hoàng \newline (24020141) &
+      Phát triển Backend FastAPI (API đặt vé giữ chỗ TTL Redis + ghi RDS, QR Check-in, Cache-Aside, Rate Limiting), hàng đợi SQS + DLQ + bảng DynamoDB Idempotency, hàm AWS Lambda phát hành vé QR \& gửi email (SES/SMTP), mẫu CloudFormation và bảng chi phí AWS Pricing Calculator. &
+      Mã nguồn API/Lambda, mẫu CloudFormation (\texttt{infra/*.yaml}), luồng xử lý bất đồng bộ SQS/Lambda, bảng ước tính chi phí. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Bảng phân công công việc và sản phẩm bàn giao của các thành viên}
+  \label{tab:team-assignment}
+\end{table}
+
+\clearpage
+
+% ---- Danh mục chữ viết tắt ----
+\chapter*{Danh mục các chữ viết tắt}
+\addcontentsline{toc}{chapter}{Danh mục các chữ viết tắt}
+
+{\small
+\renewcommand{\arraystretch}{1.20}
+\begin{longtable}{>{\bfseries}p{1.8cm} >{\raggedright\arraybackslash}p{5.2cm} >{\raggedright\arraybackslash}p{7.6cm}}
+  \toprule
+  Viết tắt & Tiếng Anh & Ý nghĩa trong hệ thống \\
+  \midrule
+  \endfirsthead
+  \toprule
+  Viết tắt & Tiếng Anh & Ý nghĩa trong hệ thống \\
+  \midrule
+  \endhead
+  \midrule
+  \multicolumn{3}{r}{\textit{(Xem tiếp trang sau)}} \\
+  \endfoot
+  \bottomrule
+  \endlastfoot
+  ACID & Atomicity, Consistency, Isolation, Durability & Tập tính chất đảm bảo toàn vẹn giao dịch CSDL quan hệ (RDS MySQL). \\
+  ALB & Application Load Balancer & Bộ cân bằng tải tầng ứng dụng (Layer 7) phân tải vào các EC2. \\
+  AMI & Amazon Machine Image & Ảnh đĩa hệ điều hành và ứng dụng đóng gói sẵn cho Launch Template. \\
+  ASG & Auto Scaling Group & Nhóm tự động điều chỉnh số lượng EC2 theo lưu lượng thực tế. \\
+  AZ & Availability Zone & Vùng sẵn sàng độc lập về nguồn điện và mạng trong một Region AWS. \\
+  CDN & Content Delivery Network & Mạng phân phối nội dung toàn cầu (Amazon CloudFront). \\
+  DLQ & Dead-Letter Queue & Hàng đợi thư chết chứa các thông điệp SQS thất bại sau 3 lần thử. \\
+  EBS & Elastic Block Store & Ổ đĩa lưu trữ khối độ trễ thấp (\texttt{gp3}) gắn trực tiếp vào EC2. \\
+  EC2 & Elastic Compute Cloud & Dịch vụ máy chủ ảo chạy container ứng dụng Backend FastAPI. \\
+  IaC & Infrastructure as Code & Quản lý và triển khai hạ tầng bằng mã nguồn (CloudFormation). \\
+  IAM & Identity and Access Management & Dịch vụ quản lý định danh và phân quyền truy cập bằng IAM Role. \\
+  JWT & JSON Web Token & Chuẩn mã thông báo xác thực phiên đăng nhập người dùng. \\
+  NAT & Network Address Translation & Cổng chuyển đổi địa chỉ cho phép máy chủ Private Subnet ra Internet. \\
+  OAC & Origin Access Control & Cơ chế ký xác thực giúp chỉ CloudFront mới đọc được S3 Bucket. \\
+  PITR & Point-in-Time Recovery & Khả năng khôi phục cơ sở dữ liệu RDS về bất kỳ thời điểm nào. \\
+  RBAC & Role-Based Access Control & Kiểm soát truy cập dựa trên vai trò (\texttt{USER} và \texttt{ADMIN}). \\
+  RDS & Relational Database Service & Dịch vụ cơ sở dữ liệu quan hệ được AWS quản trị (MySQL 8.4 Multi-AZ). \\
+  RPS & Requests Per Second & Số lượng yêu cầu HTTP hệ thống xử lý trong mỗi giây. \\
+  S3 & Simple Storage Service & Dịch vụ lưu trữ đối tượng lưu tệp web tĩnh, poster sự kiện và mã QR. \\
+  SES & Simple Email Service & Dịch vụ gửi thư điện tử đám mây của AWS. \\
+  SG & Security Group & Tường lửa ảo kiểm soát lưu lượng vào/ra ở mức instance. \\
+  SNS & Simple Notification Service & Dịch vụ gửi thông báo cảnh báo từ CloudWatch tới email quản trị. \\
+  SQS & Simple Queue Service & Dịch vụ hàng đợi thông điệp tách tác vụ gửi vé khỏi luồng đặt vé. \\
+  TLS & Transport Layer Security & Giao thức mã hóa đường truyền (HTTPS, Redis TLS, SMTP STARTTLS). \\
+  TTL & Time To Live & Thời gian tồn tại tự động hết hạn (giữ chỗ Redis 10 phút, DynamoDB 24h). \\
+  VPC & Virtual Private Cloud & Mạng riêng ảo cô lập tài nguyên trên AWS (\texttt{10.0.0.0/16}). \\
+\end{longtable}
+}
+
+\clearpage

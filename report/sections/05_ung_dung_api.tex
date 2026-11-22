@@ -1,0 +1,138 @@
+\chapter[Thiết kế và cài đặt ứng dụng]{Thiết kế và cài đặt ứng dụng TicketRush}
+
+\section{Kiến trúc tầng ứng dụng Backend (FastAPI)}
+Ứng dụng Backend được phát triển bằng \textbf{Python 3.12} và \textbf{FastAPI}, đóng gói thành container Docker chạy với máy chủ ASGI \textbf{Uvicorn} (\texttt{--workers 2} trên mỗi EC2 \texttt{t3.small}). Mã nguồn được phân tầng rõ ràng theo kiến trúc sạch:
+\begin{itemize}[leftmargin=1.5em]
+  \item \texttt{app/routes/}: Định nghĩa 19 API endpoints chia theo 4 nhóm nghiệp vụ (\texttt{auth}, \texttt{events}, \texttt{bookings}, \texttt{admin}) cùng endpoint kiểm tra sức khỏe \texttt{GET /health}.
+  \item \texttt{app/services/}: Chứa logic nghiệp vụ cốt lõi (\texttt{booking\_service}, \texttt{admin\_service}, \texttt{redis\_service}, \texttt{s3\_service}, \texttt{ticket\_email\_service}).
+  \item \texttt{app/core/}: Các tiện ích hạ tầng dùng chung gồm bảo mật JWT/bcrypt (\texttt{security.py}), phân quyền (\texttt{deps.py}), bộ đệm Redis Cache-Aside (\texttt{cache.py}), giới hạn tốc độ (\texttt{rate\_limit.py}) và bộ đẩy hàng đợi SQS (\texttt{sqs.py}).
+\end{itemize}
+
+{\scriptsize
+\renewcommand{\arraystretch}{1.22}
+\begin{longtable}{>{\ttfamily}l >{\ttfamily}l l >{\raggedright\arraybackslash}p{5.5cm}}
+  \caption{Danh mục các API Endpoints của hệ thống TicketRush (\textit{RL = Rate Limited 10 req/60s})}
+  \label{tab:api-endpoints} \\
+  \toprule
+  \normalfont\textbf{Method} & \normalfont\textbf{Endpoint} & \textbf{Quyền} & \textbf{Chức năng chính} \\
+  \midrule
+  \endfirsthead
+  \caption[]{Danh mục các API Endpoints của hệ thống TicketRush (tiếp)} \\
+  \toprule
+  \normalfont\textbf{Method} & \normalfont\textbf{Endpoint} & \textbf{Quyền} & \textbf{Chức năng chính} \\
+  \midrule
+  \endhead
+  \midrule
+  \multicolumn{4}{r}{\textit{(Xem tiếp trang sau)}} \\
+  \endfoot
+  \bottomrule
+  \endlastfoot
+  GET & /health & Public & Kiểm tra tình trạng container cho ALB Health Check. \\
+  POST & /api/auth/register & Public & Đăng ký tài khoản mới (băm mật khẩu bằng bcrypt). \\
+  POST & /api/auth/login & Public & Xác thực và cấp JWT Access Token. \\
+  GET & /api/events/ & Public & Danh sách sự kiện (Redis Cache-Aside, TTL 60s). \\
+  GET & /api/events/\{id\} & Public & Chi tiết sự kiện và tồn kho 3 hạng vé (TTL 120s). \\
+  POST & /api/bookings/ & User + RL & Đặt vé trực tiếp 1 bước qua API. \\
+  POST & /api/bookings/reserve & User + RL & Bước 1: Giữ chỗ nguyên tử trên Redis (TTL 600s), tạo đơn \texttt{PENDING}. \\
+  POST & /api/bookings/\{id\}/confirm & User & Bước 2: Chốt thanh toán, trừ tồn kho RDS, sinh vé \& đẩy SQS. \\
+  POST & /api/bookings/\{id\}/cancel & User & Hủy giữ chỗ \texttt{PENDING} và hoàn vé ngay lập tức về Redis. \\
+  GET & /api/bookings/me & User & Xem danh sách đơn hàng và mã vé đã mua. \\
+  POST/PUT/DEL & /api/admin/events[/\{id\}] & Admin & Tạo/sửa/xóa sự kiện, tự đồng bộ Redis \& xóa cache. \\
+  PATCH & /api/admin/events/\{id\}/cancel & Admin & Hủy sự kiện, hủy các đơn liên quan và đưa tồn kho về 0. \\
+  GET & /api/admin/bookings & Admin & Tra cứu danh sách đơn hàng toàn hệ thống / theo sự kiện. \\
+  GET & /api/admin/bookings/export & Admin & Xuất báo cáo đơn hàng định dạng CSV (UTF-8 BOM). \\
+  GET & /api/admin/events/\{id\}/export & Admin & Xuất danh sách người tham dự của từng sự kiện ra CSV. \\
+  POST & /api/admin/bookings/\{id\}/send-tickets & Admin & Gửi lại email vé QR cho đơn đã xác nhận. \\
+  POST & /api/admin/tickets/check-in & Admin & Quét/nhập mã vé \texttt{TKT-...} check-in tại cổng (chặn trùng \texttt{409}). \\
+  POST & /api/admin/upload-poster & Admin & Tải ảnh poster ($\le$ 5 MB) lên S3 \texttt{ticketrush-assets-hieu/posters/}. \\
+\end{longtable}
+}
+
+\section{Cơ chế chống bán vượt số chỗ (Anti-Overselling) và giữ chỗ TTL}
+Để đảm bảo yêu cầu cốt lõi \textbf{"Không bao giờ bán vượt 300 vé"} ngay cả khi hàng trăm người dùng nhấn đặt cùng một mili-giây, hệ thống áp dụng chiến lược \textbf{phòng vệ 3 lớp}:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Lớp 1 - Chặn nhanh trên RAM bằng ElastiCache Redis:}
+    Khi nhận yêu cầu đặt vé, hàm \texttt{reserve\_seats()} thực hiện thao tác nguyên tử \texttt{DECRBY} trên khóa \texttt{event:\{id\}:tier:\{tier\}:available}. Nếu kết quả nhỏ hơn 0, hệ thống lập tức hoàn lại bằng \texttt{INCRBY} và trả \texttt{HTTP 409 Conflict} (\textit{hết vé}) trong vài mili-giây mà không cần chạm vào RDS. Với luồng 2 bước trên web, một khóa giữ chỗ \texttt{booking:hold:\{booking\_id\}} kèm TTL 600 giây được lưu trên Redis; nếu người dùng hủy hoặc hết giờ, vé được nhả lại ngay.
+  \item \textbf{Lớp 2 - Trừ tồn kho nguyên tử mức hàng trên RDS MySQL:}
+    Trong giao dịch xác nhận (\texttt{db.begin\_nested()}), Backend thực hiện câu lệnh cập nhật có điều kiện nguyên tử thay vì đọc-rồi-ghi tách rời:
+\begin{lstlisting}[language=SQL, caption={Câu lệnh cập nhật tồn kho nguyên tử chống tranh chấp trên RDS MySQL}]
+UPDATE events
+SET available_tickets = available_tickets - :qty,
+    standard_available = standard_available - :qty
+WHERE id = :event_id
+  AND status = 'ACTIVE'
+  AND available_tickets >= :qty
+  AND standard_available >= :qty;
+\end{lstlisting}
+    MySQL InnoDB tự động giữ khóa độc quyền mức hàng (\textit{row-level lock}) trong suốt câu lệnh \texttt{UPDATE}. Nếu \texttt{rowcount == 0}, giao dịch bị rollback, vé trên Redis được hoàn lại và trả về mã \texttt{409}.
+  \item \textbf{Lớp 3 - Ràng buộc toàn vẹn \texttt{CHECK} mức CSDL:}
+    Bảng \texttt{events} định nghĩa ràng buộc \texttt{chk\_event\_tickets} đảm bảo \texttt{available\_tickets >= 0} và tồn kho từng hạng không bao giờ âm dưới bất kỳ hoàn cảnh nào.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \resizebox{0.98\textwidth}{!}{%
+  \begin{tikzpicture}[
+    node distance=0.6cm and 0.75cm,
+    stepbox/.style={rectangle, rounded corners=4pt, draw=uetblue, fill=blue!4, thick, align=center, font=\sffamily\footnotesize, minimum width=2.8cm, minimum height=0.9cm, inner sep=5pt},
+    dec/.style={diamond, draw=uetaccent, fill=orange!6, thick, align=center, font=\sffamily\scriptsize, aspect=2.1, inner sep=2pt},
+    errbox/.style={rectangle, rounded corners=3pt, draw=BrickRed, fill=red!6, font=\sffamily\scriptsize, align=center, minimum width=2.4cm, inner sep=5pt},
+    okbox/.style={rectangle, rounded corners=4pt, draw=ForestGreen, fill=green!7, thick, align=center, font=\sffamily\footnotesize, minimum width=3.1cm, inner sep=5pt},
+    arr/.style={-{Stealth[length=5pt]}, thick, color=uetblue}
+  ]
+    % Hàng 1: Luồng chính từ trái sang phải
+    \node[stepbox] (req) {\textbf{POST /reserve}\\(JWT + Rate Limit)};
+    \node[dec, right=0.85cm of req] (rl) {Vượt 10/60s?};
+    \node[stepbox, right=1.0cm of rl] (redis) {\textbf{Redis DECRBY}\\Tạo Hold TTL 600s};
+    \node[dec, right=0.85cm of redis] (hasseat) {Còn ghế?};
+    \node[stepbox, right=1.0cm of hasseat] (confirm) {\textbf{POST /confirm}\\UPDATE RDS ACID};
+
+    % Hàng 2: Các nhánh rẽ tách bạch từng cột, không chồng lấn
+    \node[errbox, below=0.85cm of rl] (e429) {\textbf{HTTP 429}\\Too Many Requests};
+    \node[errbox, below=0.85cm of hasseat] (e409) {\textbf{INCRBY hoàn vé}\\HTTP 409 Hết vé};
+    \node[okbox, below=0.85cm of confirm] (sqs) {\textbf{Xóa Cache \& Đẩy SQS}\\Trả HTTP 200 tức thì};
+
+    % Hàng 3: Tác vụ bất đồng bộ đặt ngay dưới SQS
+    \node[okbox, below=0.85cm of sqs, fill=orange!7, draw=uetaccent] (lam) {\textbf{Lambda + DynamoDB}\\Sinh QR $\rightarrow$ S3 \& Gửi Email};
+
+    % Các mũi tên
+    \draw[arr] (req) -- (rl);
+    \draw[arr] (rl) -- node[right, font=\scriptsize]{Có} (e429);
+    \draw[arr] (rl) -- node[above, font=\scriptsize]{Không} (redis);
+    \draw[arr] (redis) -- (hasseat);
+    \draw[arr] (hasseat) -- node[right, font=\scriptsize]{Không} (e409);
+    \draw[arr] (hasseat) -- node[above, font=\scriptsize]{Có} (confirm);
+    \draw[arr] (confirm) -- (sqs);
+    \draw[arr, dashed, color=uetaccent] (sqs) -- node[right, font=\scriptsize, text=uetaccent]{Async (SQS)} (lam);
+  \end{tikzpicture}
+  }%
+  \caption{Luồng xử lý đặt vé 2 bước giữ chỗ TTL, chống bán lố và phát hành vé bất đồng bộ}
+  \label{fig:booking-flow}
+\end{figure}
+
+\section{Pipeline bất đồng bộ SQS, Dead-Letter Queue, DynamoDB và AWS Lambda}
+Việc sinh ảnh mã QR (\texttt{qrcode + Pillow}), tải tệp lên S3 và kết nối máy chủ gửi email mất trung bình 1-3 giây. Nếu chạy đồng bộ trong API đặt vé sẽ làm kẹt worker Uvicorn khi tải tăng cao. Nhóm đã tách hoàn toàn công việc này sang pipeline bất đồng bộ:
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Producer (\texttt{app/core/sqs.py}):} Sau khi chốt đơn trong RDS (ở cả \texttt{POST /api/bookings/} và \texttt{POST /api/bookings/\{id\}/confirm}), FastAPI chạy tác vụ nền đẩy đúng 1 thông điệp JSON chứa \texttt{booking\_id}, \texttt{idempotency\_key} (\texttt{booking\_code}) và \texttt{action} vào hàng đợi SQS \texttt{ticketrush-ticket-generation}. Nếu SQS bị tắt ở môi trường local (\texttt{USE\_SQS=false}), hệ thống tự động fallback sang SMTP trực tiếp.
+  \item \textbf{Consumer (\texttt{ticketrush-ticket-generator}, Python 3.11, 512 MB RAM, Timeout 60s):}
+    \begin{enumerate}[leftmargin=1.3em]
+      \item \textbf{Chống xử lý trùng lặp (Idempotency):} Gọi \texttt{PutItem} có điều kiện \texttt{attribute\_not\_exists} vào bảng DynamoDB \texttt{ticketrush-ticket-idempotency} (TTL 24 giờ). Nếu khóa đã tồn tại thì bỏ qua; nếu xử lý lỗi thì giải phóng khóa để SQS có thể thử lại.
+      \item \textbf{Sinh QR \& Lưu S3:} Với mỗi vé \texttt{TKT-...}, Lambda sinh ảnh PNG, tải lên \path{s3://ticketrush-assets-hieu/qr-codes/<ticket_code>.png} (mã hóa AES-256) và tạo Pre-signed URL có hiệu lực 24 giờ.
+      \item \textbf{Gửi email linh hoạt (Gmail SMTP / SES):} Gửi email xác nhận kèm cả liên kết tải S3 lẫn tệp ảnh PNG mã QR đính kèm trực tiếp. Nhờ hỗ trợ Gmail SMTP (App Password) song song với AWS SES, bất kỳ người dùng nào đăng ký tài khoản bằng email mới đều nhận được vé tức thì mà không bị giới hạn bởi chế độ Sandbox của SES.
+      \item \textbf{Xử lý lỗi theo từng phần tử \& DLQ:} Hàm trả về \texttt{batchItemFailures} (\textit{ReportBatchItemFailures}). Thông điệp lỗi được thử lại tối đa 3 lần (\texttt{maxReceiveCount = 3}) trước khi chuyển vào \textbf{Dead-Letter Queue (\texttt{ticketrush-ticket-generation-dlq})} và kích hoạt CloudWatch Alarm.
+    \end{enumerate}
+\end{itemize}
+
+\section{Giao diện người dùng và trang quản trị (Admin Dashboard)}
+Giao diện được xây dựng bằng HTML5, CSS3 và Vanilla JavaScript ES6+ (không phụ thuộc framework cồng kềnh, tốc độ tải cực nhanh qua CloudFront), tự động nhận diện môi trường chạy (\texttt{http://127.0.0.1:8000/api} khi phát triển cục bộ và đường dẫn tương đối \texttt{/api} khi chạy trên CloudFront HTTPS):
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Trang người dùng (\texttt{index.html}, \texttt{app.js}, \texttt{styles.css}):} Hiển thị danh sách sự kiện kèm tìm kiếm, lọc thể loại, sắp xếp, phân trang động; hộp thoại chọn hạng vé hiển thị tồn kho thời gian thực; hộp thoại thanh toán với đồng hồ đếm ngược TTL 10 phút; mục \textit{My tickets} quản lý vé đã mua.
+  \item \textbf{Trang quản trị (\texttt{admin.html}, \texttt{admin.js}, \texttt{admin.css}):} Thiết kế đồng bộ giao diện, gồm 3 tab chức năng: \textbf{Events} (CRUD sự kiện, hủy sự kiện, tải lên ảnh poster trực tiếp lên S3 có xem trước), \textbf{Bookings} (lọc theo sự kiện, xuất báo cáo CSV, gửi lại email vé), và \textbf{Check-in QR} (nhập hoặc quét mã vé \texttt{TKT-...} tại cổng, hiển thị thông tin khách hàng và chặn lỗi \texttt{409 Conflict} nếu quét lại vé đã check-in).
+\end{itemize}
+
+\smartfigure{ui_booking_checkout.png}{Giao diện TicketRush qua CloudFront HTTPS và hộp thoại giữ chỗ đếm ngược TTL 10 phút}{fig:ui-checkout}{Chụp màn hình web tại \texttt{https://d3m6e24vu2nkwf.cloudfront.net} và modal \textit{Payment \& Confirmation}, lưu tại \texttt{report/images/ui\_booking\_checkout.png}.}
+
+\smartfigure{email_qr_s3.png}{Email xác nhận vé kèm ảnh QR đính kèm và tệp QR lưu trữ trên S3 \texttt{ticketrush-assets-hieu}}{fig:email-qr-s3}{Chụp màn hình hộp thư nhận email vé QR + danh sách đối tượng trong S3 \texttt{qr-codes/}, lưu tại \texttt{report/images/email\_qr\_s3.png}.}
+
+\smartfigure{admin_checkin_qr.png}{Giao diện Admin Dashboard: tải ảnh poster lên S3 và tính năng soát vé Check-in QR}{fig:admin-checkin}{Chụp màn hình tab \textit{Check-in QR} (trạng thái hợp lệ và cảnh báo chặn quét trùng) hoặc form tạo sự kiện, lưu tại \texttt{report/images/admin\_checkin\_qr.png}.}

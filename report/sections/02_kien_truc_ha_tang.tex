@@ -1,0 +1,174 @@
+\chapter[Kiến trúc hệ thống và hạ tầng mạng]{Kiến trúc hệ thống và hạ tầng mạng AWS}
+
+\section{Sơ đồ kiến trúc tổng thể}
+Hệ thống TicketRush được thiết kế theo mô hình \textbf{kiến trúc 3 tầng (3-Tier Architecture)} kết hợp \textbf{xử lý bất đồng bộ hướng sự kiện (Event-Driven Serverless)} trên AWS. Hình~\ref{fig:architecture} mô tả toàn bộ các thành phần và luồng dữ liệu thực tế của hệ thống.
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tikzpicture}[
+    node distance=0.8cm and 0.9cm,
+    box/.style={rectangle, rounded corners=4pt, draw=uetblue, fill=white, thick, align=center, font=\sffamily\footnotesize, minimum height=1.0cm, minimum width=2.4cm, inner sep=5pt},
+    awsbox/.style={rectangle, rounded corners=4pt, draw=uetaccent, fill=orange!6, thick, align=center, font=\sffamily\footnotesize, minimum height=0.95cm, minimum width=2.7cm, inner sep=5pt},
+    databox/.style={cylinder, shape border rotate=90, aspect=0.25, draw=uetblue, fill=blue!6, thick, align=center, font=\sffamily\footnotesize, minimum height=1.15cm, minimum width=2.35cm, inner sep=4pt},
+    zone/.style={rectangle, rounded corners=6pt, dashed, draw=gray!70, inner sep=10pt},
+    arrow/.style={-{Stealth[length=6pt]}, thick, color=uetblue},
+    asyncarrow/.style={-{Stealth[length=6pt]}, thick, dashed, color=uetaccent}
+  ]
+
+    % --- External / Edge (bên trái, tách hẳn khỏi khung VPC) ---
+    \node[box, fill=gray!10, minimum width=2.1cm] (user) {\textbf{Người dùng}\\(Trình duyệt Web)};
+    \node[awsbox, right=1.15cm of user, minimum width=2.8cm] (cf) {\textbf{CloudFront CDN}\\{\scriptsize\texttt{d3m6e24vu2nkwf...}}\\HTTPS + OAC};
+    \node[awsbox, below=0.95cm of cf, minimum width=2.8cm] (s3web) {\textbf{S3 Frontend}\\{\scriptsize\texttt{ticketrush-web}}\\Block Public Access};
+
+    % --- Public Subnets (cột trái trong VPC) ---
+    \node[box, fill=green!7, draw=ForestGreen, right=2.15cm of cf, minimum width=3.1cm] (alb) {\textbf{Application Load Balancer}\\{\scriptsize\texttt{ticketrush-alb}} (Port 80)\\\texttt{tr-public-a / tr-public-b}};
+    \node[box, fill=green!5, draw=ForestGreen, below=0.65cm of alb, minimum width=3.1cm] (nat) {\textbf{NAT Gateway}\\{\scriptsize\texttt{tr-public-a}} (Outbound)};
+
+    % --- Private App Subnets (cột phải trong VPC) ---
+    \node[box, fill=blue!5, right=1.3cm of alb, yshift=0.35cm, minimum width=3.2cm] (ec2a) {\textbf{EC2 (AZ 1a) - ASG}\\{\scriptsize\texttt{t3.small}} + EBS 20GB\\FastAPI (:8000, 2 workers)};
+    \node[box, fill=blue!5, below=0.55cm of ec2a, minimum width=3.2cm] (ec2b) {\textbf{EC2 (AZ 1b) - ASG}\\{\scriptsize\texttt{t3.small}} + EBS 20GB\\FastAPI (:8000, 2 workers)};
+
+    % --- Private Data Subnets (hàng dưới trong VPC, cách đều để đặt nhãn cổng) ---
+    \node[databox, below=1.65cm of ec2b, xshift=-1.65cm] (rds) {\textbf{RDS MySQL 8.4}\\Multi-AZ (1a/1b)\\\texttt{db.t3.micro}};
+    \node[databox, right=0.85cm of rds] (redis) {\textbf{ElastiCache Redis}\\7.1 TLS (:6379)\\\texttt{cache.t3.micro}};
+
+    % --- Serverless / Regional Services (bên phải, tách hẳn khỏi khung VPC) ---
+    \node[awsbox, right=2.0cm of ec2a, yshift=0.25cm] (sqs) {\textbf{Amazon SQS + DLQ}\\{\scriptsize\texttt{ticket-generation}}\\MaxReceiveCount=3};
+    \node[awsbox, below=0.65cm of sqs] (lambda) {\textbf{AWS Lambda (v2)}\\Tạo QR + Idempotency\\Gửi Email vé};
+    \node[awsbox, below=0.65cm of lambda] (s3qr) {\textbf{S3 Assets \& DynamoDB}\\{\scriptsize\texttt{ticketrush-assets-hieu}}\\{\scriptsize\texttt{ticket-idempotency}}};
+    \node[awsbox, below=0.65cm of s3qr] (mail) {\textbf{SES / Gmail SMTP}\\Gửi vé QR tới\\hộp thư khách hàng};
+
+    % --- VPC / Subnet Containers ---
+    \begin{scope}[on background layer]
+      \node[zone, draw=ForestGreen!70, fill=green!2, fit=(alb)(nat), inner sep=8pt, label={[font=\sffamily\scriptsize\bfseries, text=ForestGreen, yshift=2pt]above:Public Subnets (10.0.1.0/24, 10.0.2.0/24)}] (pubzone) {};
+      \node[zone, draw=uetblue!80, fill=blue!2, fit=(ec2a)(ec2b), inner sep=8pt, label={[font=\sffamily\scriptsize\bfseries, text=uetblue, yshift=2pt]above:Private App Subnets - ASG Min 2 / Max 4}] (appzone) {};
+      \node[zone, draw=NavyBlue!80, fill=cyan!3, fit=(rds)(redis), inner sep=9pt, label={[font=\sffamily\scriptsize\bfseries, text=NavyBlue, yshift=-2pt]below:Private Data Subnets (10.0.21.0/24, 10.0.22.0/24)}] (datazone) {};
+      \node[zone, draw=black!75, line width=1pt, solid, fit=(pubzone)(appzone)(datazone), inner xsep=14pt, inner ysep=20pt] (vpcbox) {};
+      \node[font=\sffamily\small\bfseries, fill=white, inner sep=3pt, anchor=south] at (vpcbox.north) {VPC \texttt{ticketrush-vpc} (10.0.0.0/16 - \texttt{ap-southeast-1})};
+    \end{scope}
+
+    % --- Observability & Security (dịch vụ quản trị đặt ngoài VPC phía dưới trái) ---
+    \node[box, fill=purple!6, draw=Purple, below=1.0cm of s3web, minimum width=2.8cm] (cw) {\textbf{CloudWatch + SNS}\\Dashboard, 7 Alarms\\Email Alerts \& ASG};
+    \node[box, fill=purple!6, draw=Purple, below=0.55cm of cw, minimum width=2.8cm] (iam) {\textbf{IAM Roles \& Secrets}\\{\scriptsize\texttt{ticketrush-ec2-role}}\\Secrets Manager};
+
+    % --- Arrows ---
+    \draw[arrow] (user) -- node[above, font=\scriptsize]{HTTPS} (cf);
+    \draw[arrow] (cf) -- node[right, font=\scriptsize]{OAC} (s3web);
+    \draw[arrow] (cf) -- node[above, font=\scriptsize, fill=white, inner sep=1.5pt]{\texttt{/api/*}} (alb);
+    \draw[arrow] (alb.east) -- ++(0.5,0) |- (ec2a.west);
+    \draw[arrow] (alb.east) -- ++(0.5,0) |- (ec2b.west);
+    \draw[arrow] (ec2b.south) -- ++(0,-0.62) -| (rds.north) node[pos=0.25, above, font=\scriptsize, fill=white, inner sep=1pt]{:3306};
+    \draw[arrow] (ec2b.south) -- ++(0,-0.62) -| (redis.north) node[pos=0.25, above, font=\scriptsize, fill=white, inner sep=1pt]{:6379 TLS};
+    \draw[asyncarrow] (ec2a.east) -- node[above, font=\scriptsize, fill=white, inner sep=1.5pt]{Push Job} (sqs.west);
+    \draw[asyncarrow] (sqs) -- node[right, font=\scriptsize]{Trigger} (lambda);
+    \draw[asyncarrow] (lambda) -- (s3qr);
+    \draw[asyncarrow] (s3qr) -- (mail);
+    \draw[asyncarrow, color=Purple] (cw.east) -- node[above, font=\scriptsize, text=Purple, fill=white, inner sep=1pt]{Metrics} (cw.east -| vpcbox.west);
+    \draw[asyncarrow, color=Purple] (iam.east) -- node[above, font=\scriptsize, text=Purple, fill=white, inner sep=1pt]{STS/Auth} (iam.east -| vpcbox.west);
+  \end{tikzpicture}
+  }%
+  \caption{Sơ đồ kiến trúc tổng thể hệ thống TicketRush triển khai thực tế trên AWS}
+  \label{fig:architecture}
+\end{figure}
+
+\noindent\textbf{Luồng dữ liệu chính của hệ thống:}
+\begin{enumerate}[leftmargin=1.5em]
+  \item Người dùng truy cập trang web qua HTTPS tại CloudFront (\texttt{https://d3m6e24vu2nkwf.cloudfront.net}). Tệp giao diện tĩnh (\texttt{index.html}, \texttt{app.js}, \texttt{styles.css}, \texttt{admin.*}) được CloudFront đọc từ S3 \texttt{ticketrush-web} thông qua \textbf{Origin Access Control (OAC)} và lưu đệm tại Edge Location.
+  \item Các yêu cầu API mang tiền tố \texttt{/api/*} được CloudFront chuyển tiếp không cache (\textit{CachingDisabled}) tới Application Load Balancer (\texttt{ticketrush-alb}).
+  \item ALB phân tải lưu lượng vào cổng \texttt{8000} của các máy chủ EC2 đang nằm trong Private App Subnets trên cả 2 vùng sẵn sàng (\texttt{1a} và \texttt{1b}).
+  \item Ứng dụng FastAPI kiểm tra Rate Limit, đọc Cache-Aside hoặc giữ chỗ nguyên tử trên \textbf{ElastiCache Redis}, sau đó ghi giao dịch xác nhận vào \textbf{RDS MySQL Multi-AZ}.
+  \item Sau khi giao dịch chốt thành công, Backend đẩy thông điệp nhẹ chứa \texttt{booking\_id} và \texttt{idempotency\_key} vào hàng đợi \textbf{Amazon SQS} rồi trả phản hồi HTTP \texttt{200/201} tức thì cho người dùng.
+  \item \textbf{AWS Lambda} nhận thông điệp từ SQS, kiểm tra chống trùng trên \textbf{DynamoDB}, sinh ảnh mã QR lưu vào \textbf{S3} (\texttt{ticketrush-assets-hieu/qr-codes/}), tạo Pre-signed URL và gửi email xác nhận vé tới khách hàng.
+  \item \textbf{CloudWatch} thu thập số liệu toàn hệ thống, kích hoạt \textbf{SNS} gửi email cảnh báo khi vượt ngưỡng và tự động điều khiển \textbf{Auto Scaling Group} tăng/giảm số lượng EC2.
+\end{enumerate}
+
+\section{Thiết kế mạng riêng VPC trên 2 Availability Zones}
+Nhóm tự xây dựng mạng riêng ảo \texttt{ticketrush-vpc} (\texttt{vpc-0f8b9f335902973a1}) với không gian địa chỉ \texttt{10.0.0.0/16}, bật \textit{DNS resolution} và \textit{DNS hostnames}, chia thành \textbf{6 subnet} phân tách rõ ràng theo 3 tầng bảo mật trên 2 vùng sẵn sàng \texttt{ap-southeast-1a} và \texttt{ap-southeast-1b} (Bảng~\ref{tab:subnets}).
+
+\begin{table}[H]
+  \centering
+  \small
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\textwidth}{l l l l X}
+    \toprule
+    \textbf{Tên Subnet} & \textbf{CIDR} & \textbf{AZ} & \textbf{Loại} & \textbf{Thành phần triển khai \& Định tuyến} \\
+    \midrule
+    \texttt{tr-public-a} & \texttt{10.0.1.0/24} & \texttt{1a} & Public & ALB, NAT Gateway, Bastion (tắt khi vận hành). Route \texttt{0.0.0.0/0} $\rightarrow$ IGW. \\
+    \texttt{tr-public-b} & \texttt{10.0.2.0/24} & \texttt{1b} & Public & ALB (bắt buộc $\ge$ 2 AZ cho HA). Route \texttt{0.0.0.0/0} $\rightarrow$ IGW. \\
+    \texttt{tr-app-a} & \texttt{10.0.11.0/24} & \texttt{1a} & Private App & EC2 Backend (ASG), không có Public IP. Route \texttt{0.0.0.0/0} $\rightarrow$ NAT GW. \\
+    \texttt{tr-app-b} & \texttt{10.0.12.0/24} & \texttt{1b} & Private App & EC2 Backend (ASG), không có Public IP. Route \texttt{0.0.0.0/0} $\rightarrow$ NAT GW. \\
+    \texttt{tr-data-a} & \texttt{10.0.21.0/24} & \texttt{1a} & Private Data & RDS MySQL (Primary), ElastiCache Redis. Chỉ có route \texttt{local}. \\
+    \texttt{tr-data-b} & \texttt{10.0.22.0/24} & \texttt{1b} & Private Data & RDS MySQL (Standby Multi-AZ). Chỉ có route \texttt{local}. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Cấu trúc phân chia 6 Subnet theo 3 tầng trên 2 AZ trong \texttt{ticketrush-vpc}}
+  \label{tab:subnets}
+\end{table}
+
+\smartfigure{vpc_subnets.png}{Sơ đồ tài nguyên VPC \texttt{ticketrush-vpc} với 6 subnet trên 2 AZ, Route Tables và Internet/NAT Gateway}{fig:vpc-subnets}{Chụp ảnh màn hình \textit{VPC $\rightarrow$ Your VPCs $\rightarrow$ ticketrush-vpc $\rightarrow$ Resource map} và lưu tại \texttt{report/images/vpc\_subnets.png}.}
+
+\section{Phân tầng tường lửa bằng Security Groups}
+Thay vì mở cổng theo dải IP cố định dễ rò rỉ, nhóm áp dụng kỹ thuật \textbf{Security Group Chaining} (tham chiếu trực tiếp ID của Security Group tầng trước làm nguồn cho tầng sau), đảm bảo nguyên tắc phòng thủ theo chiều sâu (\textit{Defense in Depth}) như Bảng~\ref{tab:security-groups}:
+
+\begin{table}[H]
+  \centering
+  \small
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash}p{2.8cm} >{\raggedright\arraybackslash}p{3.3cm} >{\raggedright\arraybackslash}X}
+    \toprule
+    \textbf{Security Group} & \textbf{Tầng áp dụng} & \textbf{Inbound Rules} & \textbf{Mục đích bảo vệ} \\
+    \midrule
+    \texttt{tr-alb-sg} \newline {\scriptsize\texttt{sg-0272a045c483f8804}} & Application Load Balancer & TCP \texttt{80} từ \texttt{0.0.0.0/0} & Tiếp nhận lưu lượng HTTP từ CloudFront và người dùng. \\
+    \midrule
+    \texttt{tr-app-sg} \newline {\scriptsize\texttt{sg-0b3bf9766c1b23c5f}} & EC2 Backend (ASG) & TCP \texttt{8000}, \texttt{80} chỉ từ \texttt{tr-alb-sg}; TCP \texttt{22} (Bastion quản trị) & Chặn hoàn toàn kết nối trực tiếp từ Internet vào cổng ứng dụng FastAPI; các máy ASG trong Private Subnet không có Public IP. \\
+    \midrule
+    \texttt{tr-data-sg} \newline {\scriptsize\texttt{sg-092acf8aefc513aec}} & RDS MySQL \& ElastiCache Redis & TCP \texttt{3306}, \texttt{6379} chỉ từ \texttt{tr-app-sg} & Cô lập tuyệt đối tầng dữ liệu; chỉ các tài nguyên thuộc \texttt{tr-app-sg} trong VPC mới truy vấn được DB/Cache. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Cấu hình chuỗi Security Groups phân tầng trong hệ thống}
+  \label{tab:security-groups}
+\end{table}
+
+\smartfigure{ec2_private_sg.png}{Danh sách EC2 trong Private Subnet không có Public IP và Inbound Rules của \texttt{tr-app-sg}}{fig:ec2-private}{Chụp màn hình \textit{EC2 $\rightarrow$ Instances} (thấy các con ASG có \texttt{Public IPv4 = -} và máy mẫu \texttt{ticketrush-backend} đang \texttt{Stopped}) kèm \textit{Security Group tr-app-sg}, lưu tại \texttt{report/images/ec2\_private\_sg.png}.}
+
+\section{Application Load Balancer, Auto Scaling Group và CloudFront CDN}
+\subsection{Application Load Balancer (\texttt{ticketrush-alb})}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{DNS:} \url{http://ticketrush-alb-1438253633.ap-southeast-1.elb.amazonaws.com}, loại \textit{Internet-facing}, đặt trên cả hai Public Subnets \texttt{tr-public-a} và \texttt{tr-public-b}.
+  \item \textbf{Target Group (\texttt{ticketrush-backend-tg}):} Chuyển tiếp HTTP từ cổng \texttt{80} của ALB vào cổng \texttt{8000} của các EC2 trong Private App Subnets.
+  \item \textbf{Health Check:} Đường dẫn \texttt{GET /health} trả về JSON nhẹ \path{{"status":"healthy","environment":"production"}} với mã HTTP \texttt{200 OK}, giúp ALB loại bỏ tức thì máy chủ lỗi trước khi điều hướng người dùng vào.
+\end{itemize}
+
+\subsection{Launch Template, AMI và Auto Scaling Group (\texttt{ticketrush-asg})}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Mô hình đóng gói AMI cố định (Golden AMI):} Nhóm cài đặt Docker Engine, kéo mã nguồn nhánh \texttt{main}, cấu hình \texttt{backend/.env} và build sẵn Docker image (\texttt{ticketrush-backend:latest}) trên máy mẫu \texttt{ticketrush-backend} (\texttt{t3.small}, Ubuntu Server LTS, ổ EBS \texttt{gp3} 20 GiB), sau đó đóng gói thành AMI dùng cho Launch Template.
+  \item \textbf{Launch Template (\texttt{ticketrush-lt}):} Sử dụng AMI mới nhất làm phiên bản mặc định (\textit{Default version}), đính kèm IAM Role \texttt{ticketrush-ec2-role}, Security Group \texttt{tr-app-sg} và đoạn \textbf{User Data} gọn nhẹ tự khởi động container ngay khi máy vừa boot:
+\begin{lstlisting}[language=bash, caption={User Data trong Launch Template \texttt{ticketrush-lt}}]
+#!/bin/bash
+cd /opt/ticketrush
+docker compose -f docker-compose.prod.yml up -d
+\end{lstlisting}
+  \item \textbf{Auto Scaling Group (\texttt{ticketrush-asg}):} Triển khai trên 2 Private App Subnets (\texttt{tr-app-a}, \texttt{tr-app-b}), cấu hình \textbf{Min = 2, Desired = 2, Max = 4}, Health Check kiểu \textbf{ELB}. Khi cập nhật mã nguồn, nhóm sử dụng \textbf{Instance Refresh (Rolling)} để thay thế cuốn chiếu các máy chủ mà không gây gián đoạn dịch vụ (\textit{zero-downtime deployment}).
+  \item \textbf{Chính sách mở rộng tự động:} Sử dụng \textbf{Target Tracking Scaling} (\texttt{ticketrush-alb-request-tracking}) theo chỉ số \texttt{ALBRequestCountPerTarget} gắn với \texttt{ticketrush-backend-tg}, ngưỡng mục tiêu \texttt{Target value = 3000} yêu cầu/phút/target ($\approx 50$ RPS/máy), \texttt{Instance warmup = 60s}, bật tự động scale-in khi tải giảm.
+\end{itemize}
+
+\subsection{Amazon CloudFront CDN và Origin Access Control}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Distribution:} ID \texttt{E3K3I9C6DRVNO7}, tên miền HTTPS \url{https://d3m6e24vu2nkwf.cloudfront.net}.
+  \item \textbf{Hai Origin kết hợp:}
+    \begin{enumerate}[leftmargin=1.5em]
+      \item \textbf{Origin mặc định (\texttt{*}):} Trỏ vào S3 \texttt{ticketrush-web} thông qua \textbf{Origin Access Control (OAC)} với chính sách \textit{CachingOptimized}. S3 Bucket Policy chỉ cho phép \texttt{cloudfront.amazonaws.com} khớp đúng \texttt{AWS:SourceArn} đọc tệp, chặn hoàn toàn truy cập trực tiếp (trả về \texttt{403 Forbidden}).
+      \item \textbf{Origin API (\texttt{/api/*}):} Trỏ tới ALB \texttt{ticketrush-alb} với đầy đủ phương thức HTTP (\texttt{GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE}), tắt cache (\textit{CachingDisabled}) và chuyển tiếp toàn bộ header xác thực (\texttt{Authorization}). Frontend gọi tương đối \texttt{/api} nên giải quyết triệt để lỗi \textit{Mixed Content} (HTTPS gọi HTTP) và giảm chi phí preflight CORS.
+    \end{enumerate}
+\end{itemize}
+
+\smartfigure{cloudfront_oac.png}{Cấu hình CloudFront \texttt{E3K3I9C6DRVNO7} phân phối S3 qua OAC và chuyển tiếp \texttt{/api/*} về ALB}{fig:cloudfront-oac}{Chụp màn hình \textit{CloudFront $\rightarrow$ E3K3I9C6DRVNO7} (tab Origins/Behaviors) hoặc Bucket Policy \texttt{AllowCloudFrontOAC}, lưu tại \texttt{report/images/cloudfront\_oac.png}.}
+
+\begin{clo2box}{Tầng Mạng, Cân bằng tải và CDN}
+  \begin{itemize}[leftmargin=1.3em]
+    \item \textbf{Tại sao chọn Golden AMI thay vì User Data tự \texttt{git pull} \& \texttt{docker build}?} Khi đột biến tải xảy ra, máy chủ mới cần sẵn sàng nhanh nhất có thể. Với Golden AMI, container khởi động trực tiếp từ image dựng sẵn trong thời gian rất ngắn thay vì mất nhiều phút cài gói \texttt{apt}/\texttt{pip} lúc boot, đồng thời tránh phụ thuộc vào băng thông NAT Gateway và rủi ro lỗi tải gói ngoài Internet.
+    \item \textbf{Tại sao chọn Target Tracking theo \texttt{ALBRequestCountPerTarget} thay vì chỉ theo CPU?} Tác vụ web API kết hợp Redis và RDS thường bị nghẽn I/O trước khi CPU chạm ngưỡng cao. Theo dõi số yêu cầu trên mỗi máy chủ phản ánh trực tiếp lưu lượng người dùng vào hệ thống và kích hoạt mở rộng kịp thời hơn.
+    \item \textbf{Tại sao chọn CloudFront OAC thay vì bật S3 Static Website công khai?} S3 Static Website mặc định chỉ hỗ trợ HTTP (không có chứng chỉ TLS cho tên miền mặc định), dễ gây cảnh báo bảo mật trên trình duyệt và tốn chi phí truy xuất S3 lặp lại. CloudFront OAC cung cấp HTTPS miễn phí, ẩn hoàn toàn S3 khỏi Internet và cache tệp tĩnh gần người dùng.
+  \end{itemize}
+\end{clo2box}

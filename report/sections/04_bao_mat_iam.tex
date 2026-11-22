@@ -1,0 +1,47 @@
+\chapter[Bảo mật và phân quyền IAM]{Bảo mật, phân quyền IAM và quản lý bí mật}
+
+\section{Phân quyền bằng IAM Role theo nguyên tắc quyền tối thiểu}
+Một trong những yêu cầu nghiêm ngặt nhất của học phần (Hạng mục \#5) là \textbf{tuyệt đối không nhúng AWS Access Key (\path{AWS_ACCESS_KEY_ID} / \path{AWS_SECRET_ACCESS_KEY}) vào mã nguồn, biến môi trường hay ảnh máy AMI}. Hệ thống TicketRush tuân thủ hoàn toàn quy tắc này bằng cách sử dụng \textbf{IAM Roles} cấp thông tin xác thực tạm thời (\textit{STS temporary credentials}) tự động xoay vòng:
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{EC2 Instance Profile (\texttt{ticketrush-ec2-role}):}
+    Được đính kèm trực tiếp vào Launch Template \texttt{ticketrush-lt} để mọi máy chủ EC2 do Auto Scaling sinh ra đều tự động thừa hưởng quyền qua IMDS:
+    \begin{itemize}[leftmargin=1.2em]
+      \item Quyền đọc cấu hình và quản trị qua Systems Manager (\path{AmazonSSMManagedInstanceCore}, \path{AmazonSSMReadOnlyAccess}).
+      \item Quyền đẩy thông điệp đặt vé vào hàng đợi SQS (\texttt{AmazonSQSFullAccess}).
+      \item Quyền tải lên/đọc ảnh poster sự kiện qua inline policy \texttt{TicketRushS3AssetsAccess} trên đúng bucket \path{arn:aws:s3:::ticketrush-assets-hieu/*} (\texttt{s3:PutObject}, \texttt{s3:GetObject}).
+    \end{itemize}
+  \item \textbf{Lambda Execution Role (\texttt{ticketrush-lambda-execution-role}):}
+    Được gán riêng cho hàm AWS Lambda phát hành vé với các quyền tối thiểu: đọc/xóa bản ghi từ SQS (\texttt{sqs:ReceiveMessage}, \texttt{sqs:DeleteMessage}, \texttt{sqs:GetQueueAttributes}), ghi ảnh QR và ký Pre-signed URL trên \texttt{ticketrush-assets-hieu}, đọc/ghi khóa chống trùng trên DynamoDB \texttt{ticketrush-ticket-idempotency}, gọi SES (\texttt{ses:SendEmail}), ghi log CloudWatch và tạo ENI trong VPC để kết nối tới RDS Private.
+\end{enumerate}
+
+\section{Quản lý mật khẩu bằng AWS Secrets Manager}
+\begin{itemize}[leftmargin=1.5em]
+  \item Mật khẩu quản trị của RDS MySQL (\texttt{ticketrush-mysql}) được khởi tạo và lưu trữ tập trung trên \textbf{AWS Secrets Manager} (bật tùy chọn \textit{Manage master credentials in AWS Secrets Manager}), tách biệt hoàn toàn khỏi kho mã nguồn GitHub.
+  \item Tệp \texttt{backend/.env} chứa thông số môi trường sản xuất được đưa vào \texttt{.gitignore} (chỉ lưu trữ tệp mẫu rỗng \texttt{backend/.env.example} và \texttt{backend/.env.cloud.example} trên GitHub).
+\end{itemize}
+
+\smartfigure{iam_secrets.png}{Cấu hình IAM Role \texttt{ticketrush-ec2-role} gắn vào EC2 và quản lý mật khẩu RDS trên AWS Secrets Manager}{fig:iam-secrets}{Chụp màn hình \textit{IAM $\rightarrow$ Roles $\rightarrow$ ticketrush-ec2-role} và \textit{Secrets Manager}, lưu tại \texttt{report/images/iam\_secrets.png}.}
+
+\section{Bảo mật dữ liệu đường truyền, lưu trữ và truy cập quản trị}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Mã hóa trên đường truyền (Encryption in-transit):}
+    \begin{itemize}[leftmargin=1.2em]
+      \item Giao tiếp giữa trình duyệt người dùng và CloudFront bắt buộc dùng \textbf{HTTPS (TLS 1.2/1.3)} với chính sách \texttt{redirect-to-https}.
+      \item Giao tiếp giữa Backend FastAPI và ElastiCache Redis được mã hóa đầu cuối bằng \textbf{TLS} (\texttt{REDIS\_SSL=true}, giao thức \texttt{rediss://}).
+      \item Giao tiếp gửi email qua Gmail SMTP sử dụng \textbf{STARTTLS} (cổng \texttt{587}) với \texttt{ssl.create\_default\_context()}.
+    \end{itemize}
+  \item \textbf{Mã hóa khi lưu trữ (Encryption at-rest):}
+    Tất cả ảnh mã QR tải lên S3 \texttt{ticketrush-assets-hieu/qr-codes/} đều chỉ định rõ \texttt{ServerSideEncryption='AES256'} (SSE-S3) kết hợp Bucket Key.
+  \item \textbf{Bảo mật truy cập dữ liệu riêng tư:}
+    Bucket \texttt{ticketrush-web} chặn công khai hoàn toàn và chỉ mở cho CloudFront OAC. Bucket \texttt{ticketrush-assets-hieu} chỉ mở quyền đọc cho nhánh \texttt{posters/*}; nhánh \texttt{qr-codes/*} giữ riêng tư tuyệt đối, chỉ truy cập được qua Pre-signed URL có thời hạn 24 giờ.
+  \item \textbf{Quản trị CSDL an toàn qua SSH Tunnel (Bastion):}
+    Vì RDS nằm trong Private Data Subnets không có Public IP, nhóm không mở cổng 3306 ra Internet. Khi cần kiểm tra bảng dữ liệu bằng DBeaver hoặc chạy migration, quản trị viên khởi động tạm máy Bastion (\texttt{ticketrush-backend}), thiết lập đường hầm SSH bằng khóa riêng \texttt{.pem}, sau đó tắt (Stop) ngay máy Bastion khi xong việc.
+\end{itemize}
+
+\section{Bảo mật ở tầng ứng dụng}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Xác thực \& Phân quyền (RBAC):} Mật khẩu người dùng được băm một chiều bằng thuật toán \textbf{bcrypt} (có salt ngẫu nhiên); phiên làm việc sử dụng \textbf{JWT} (\texttt{PyJWT}) truyền qua header \texttt{Authorization: Bearer <token>}. Các tuyến quản trị (\texttt{/api/admin/*}) được bảo vệ chặt chẽ bằng dependency \texttt{require\_admin} kiểm tra vai trò \texttt{ADMIN} (\texttt{HTTP 403} nếu không đủ quyền).
+  \item \textbf{Chống tấn công lạm dụng API (Rate Limiting):} Middleware/dependency \texttt{booking\_rate\_limit} bảo vệ cả hai điểm đặt vé \texttt{POST /api/bookings/} và \texttt{POST /api/bookings/reserve}, giới hạn mỗi tài khoản/IP tối đa 10 yêu cầu mỗi 60 giây trên Redis (\texttt{HTTP 429}).
+  \item \textbf{Kiểm tra dữ liệu đầu vào \& Chống SQL Injection:} Toàn bộ truy vấn sử dụng SQLAlchemy ORM và câu lệnh tham số hóa (\textit{parameterized queries} với \texttt{text(":id")}); đầu vào API được xác thực nghiêm ngặt bằng Pydantic v2 (kiểm tra email, giới hạn số lượng vé 1-10, kiểm tra định dạng ảnh JPEG/PNG/WEBP/GIF và kích thước tối đa 5 MB khi tải poster).
+\end{itemize}
